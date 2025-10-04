@@ -18,7 +18,7 @@ func main() {
 	mux.HandleFunc(config.NotFoundPath, handlers.NotFoundHandler)
 	mux.HandleFunc(config.UpdatePath, handlers.UpdateHandler)
 
-	err := http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(config.ServerAddress, mux)
 	if err != nil {
 		panic(err)
 	}

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"strconv"
 
 	"github.com/prbllm/go-metrics/internal/model"
@@ -14,6 +13,14 @@ type MetricsService struct {
 
 func NewMetricsService(repository repository.MetricsRepository) *MetricsService {
 	return &MetricsService{repository: repository}
+}
+
+func (s *MetricsService) GetMetric(metricType, metricName string) (*model.Metrics, error) {
+	metric := &model.Metrics{
+		MType: metricType,
+		ID:    metricName,
+	}
+	return s.repository.GetMetric(metric)
 }
 
 func (s *MetricsService) UpdateMetric(metricType, metricName, metricValue string) error {
@@ -29,5 +36,5 @@ func (s *MetricsService) UpdateMetric(metricType, metricName, metricValue string
 		value, _ := strconv.ParseFloat(metricValue, 64)
 		metric.Value = &value
 	}
-	return s.repository.UpdateMetric(context.Background(), metric)
+	return s.repository.UpdateMetric(metric)
 }

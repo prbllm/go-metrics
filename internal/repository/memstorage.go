@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/prbllm/go-metrics/internal/model"
@@ -21,7 +20,7 @@ func (m *MemStorage) generateKey(metricType, name string) string {
 	return fmt.Sprintf("%s:%s", metricType, name)
 }
 
-func (m *MemStorage) UpdateMetric(ctx context.Context, metric *model.Metrics) error {
+func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 	key := m.generateKey(metric.MType, metric.ID)
 
 	if metric.MType == model.Counter {
@@ -32,4 +31,13 @@ func (m *MemStorage) UpdateMetric(ctx context.Context, metric *model.Metrics) er
 	}
 	m.metrics[key] = metric
 	return nil
+}
+
+func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
+	key := m.generateKey(metric.MType, metric.ID)
+	metric, ok := m.metrics[key]
+	if !ok {
+		return nil, fmt.Errorf("metric %s not found", key)
+	}
+	return metric, nil
 }
