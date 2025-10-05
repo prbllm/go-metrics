@@ -1,6 +1,6 @@
 package config
 
 const (
-	UpdatePath   = "/update/"
-	NotFoundPath = "/"
+	UpdatePath = "/update"
+	CommonPath = "/"
 )

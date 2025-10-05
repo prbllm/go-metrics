@@ -14,3 +14,7 @@ func (m *MockMetricsService) UpdateMetric(metricType, metricName, metricValue st
 func (m *MockMetricsService) GetMetric(metricType, metricName string) (*model.Metrics, error) {
 	return nil, m.Error
 }
+
+func (m *MockMetricsService) GetAllMetrics() ([]*model.Metrics, error) {
+	return nil, m.Error
+}

@@ -42,3 +42,11 @@ func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
 	}
 	return metric, nil
 }
+
+func (m *MemStorage) GetAllMetrics() []*model.Metrics {
+	metrics := make([]*model.Metrics, 0, len(m.metrics))
+	for _, metric := range m.metrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
+}

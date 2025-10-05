@@ -7,4 +7,5 @@ import (
 type MetricsRepository interface {
 	UpdateMetric(metric *model.Metrics) error
 	GetMetric(metric *model.Metrics) (*model.Metrics, error)
+	GetAllMetrics() []*model.Metrics
 }

@@ -38,3 +38,7 @@ func (s *MetricsService) UpdateMetric(metricType, metricName, metricValue string
 	}
 	return s.repository.UpdateMetric(metric)
 }
+
+func (s *MetricsService) GetAllMetrics() ([]*model.Metrics, error) {
+	return s.repository.GetAllMetrics(), nil
+}

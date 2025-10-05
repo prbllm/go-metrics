@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,6 +13,8 @@ import (
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func TestFullIntegration(t *testing.T) {
@@ -19,11 +22,15 @@ func TestFullIntegration(t *testing.T) {
 	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(config.NotFoundPath, handlers.NotFoundHandler)
-	mux.HandleFunc(config.UpdatePath, handlers.UpdateHandler)
+	router := chi.NewRouter()
+	router.Route(config.CommonPath, func(r chi.Router) {
+		r.Get("/", handlers.GetAllMetricsHandler)
+		r.Route(config.UpdatePath, func(r chi.Router) {
+			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
+		})
+	})
 
-	server := httptest.NewServer(mux)
+	server := httptest.NewServer(router)
 	defer server.Close()
 
 	t.Run("counter", func(t *testing.T) {
@@ -113,6 +120,28 @@ func TestFullIntegration(t *testing.T) {
 		expectedValue, err := strconv.ParseInt(metricValue, 10, 64)
 		require.NoError(t, err)
 		require.Equal(t, 2*expectedValue, *metric.Delta, "Expected delta is not equal to expected")
+	})
+
+	t.Run("get all metrics", func(t *testing.T) {
+		requestUpdate, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/test_all_metrics_counter/10", nil)
+		require.NoError(t, err, "Failed to create request")
+		requestUpdate.Header.Set("Content-Type", "text/plain")
+
+		_, err = http.DefaultClient.Do(requestUpdate)
+		require.NoError(t, err, "Failed to send request")
+
+		req, err := http.NewRequest(http.MethodGet, server.URL+"/", nil)
+		require.NoError(t, err, "Failed to create request")
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err, "Failed to read response body")
+		require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"), "Expected content type %s, got %s", "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+		require.Contains(t, string(body), "test_all_metrics_counter: 10")
 	})
 
 	t.Run("error cases", func(t *testing.T) {
