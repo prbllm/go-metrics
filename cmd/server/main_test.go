@@ -130,8 +130,9 @@ func TestFullIntegration(t *testing.T) {
 		require.NoError(t, err, "Failed to create request")
 		requestUpdate.Header.Set("Content-Type", "text/plain")
 
-		_, err = http.DefaultClient.Do(requestUpdate)
+		responseUpdate, err := http.DefaultClient.Do(requestUpdate)
 		require.NoError(t, err, "Failed to send request")
+		responseUpdate.Body.Close()
 
 		req, err := http.NewRequest(http.MethodGet, server.URL+"/", nil)
 		require.NoError(t, err, "Failed to create request")
@@ -152,7 +153,10 @@ func TestFullIntegration(t *testing.T) {
 		require.NoError(t, err, "Failed to create request")
 		requestUpdate.Header.Set("Content-Type", "text/plain")
 
-		_, err = http.DefaultClient.Do(requestUpdate)
+		responseUpdate, err := http.DefaultClient.Do(requestUpdate)
+		require.NoError(t, err, "Failed to send request")
+		responseUpdate.Body.Close()
+
 		require.NoError(t, err, "Failed to send request")
 
 		req, err := http.NewRequest(http.MethodGet, server.URL+"/value/counter/test_get_counter", nil)

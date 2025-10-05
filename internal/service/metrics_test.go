@@ -1,6 +1,7 @@
 package service
 
 import (
+	"sort"
 	"strconv"
 	"testing"
 
@@ -97,17 +98,30 @@ func TestMetricsService_GetAllMetrics(t *testing.T) {
 	service := NewMetricsService(storage)
 
 	expectedValue := float64(10.5)
-
+	expectedDelta := int64(10)
 	expectedMetrics := []*model.Metrics{
 		{ID: "test_gauge", MType: model.Gauge, Value: &expectedValue},
-		{ID: "test_gauge2", MType: model.Gauge, Value: &expectedValue},
+		{ID: "test_counter", MType: model.Counter, Delta: &expectedDelta},
 	}
 	service.UpdateMetric(model.Gauge, expectedMetrics[0].ID, strconv.FormatFloat(expectedValue, 'f', -1, 64))
-	service.UpdateMetric(model.Gauge, expectedMetrics[1].ID, strconv.FormatFloat(expectedValue, 'f', -1, 64))
+	service.UpdateMetric(model.Counter, expectedMetrics[1].ID, strconv.FormatInt(expectedDelta, 10))
 
 	metrics, err := service.GetAllMetrics()
 	require.NoError(t, err, "Get all metrics failed")
-	require.Equal(t, expectedMetrics, metrics, "Metrics is not equal to expected")
+	require.Equal(t, len(expectedMetrics), len(metrics), "Metrics count is not equal to expected")
+
+	sort.Slice(expectedMetrics, func(i, j int) bool {
+		return expectedMetrics[i].ID < expectedMetrics[j].ID
+	})
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].ID < metrics[j].ID
+	})
+	for i := range expectedMetrics {
+		require.Equal(t, expectedMetrics[i].MType, metrics[i].MType, "Metric type is not equal to expected")
+		require.Equal(t, expectedMetrics[i].ID, metrics[i].ID, "Metric ID is not equal to expected")
+		require.Equal(t, expectedMetrics[i].Delta, metrics[i].Delta, "Metric delta is not equal to expected")
+		require.Equal(t, expectedMetrics[i].Value, metrics[i].Value, "Metric value is not equal to expected")
+	}
 }
 
 func TestMetricsService_GetMetric(t *testing.T) {
