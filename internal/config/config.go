@@ -1,5 +1,11 @@
 package config
 
 const (
-	ServerAddress = ":8080"
+	ServerAddress = "localhost"
+	ServerPort    = ":8080"
+)
+
+const (
+	AgentPollIntervalSeconds   = 2
+	AgentReportIntervalSeconds = 10
 )

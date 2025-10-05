@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/prbllm/go-metrics/internal/config"
@@ -18,7 +19,8 @@ func main() {
 	mux.HandleFunc(config.NotFoundPath, handlers.NotFoundHandler)
 	mux.HandleFunc(config.UpdatePath, handlers.UpdateHandler)
 
-	err := http.ListenAndServe(config.ServerAddress, mux)
+	fmt.Println("Server starting on ", config.ServerPort)
+	err := http.ListenAndServe(config.ServerPort, mux)
 	if err != nil {
 		panic(err)
 	}

@@ -29,6 +29,7 @@ func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 			metric.Delta = &newDelta
 		}
 	}
+	fmt.Printf("Updating metric: %s\n", metric.String())
 	m.metrics[key] = metric
 	return nil
 }

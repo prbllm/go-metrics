@@ -1,0 +1,73 @@
+package agent
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/prbllm/go-metrics/internal/model"
+)
+
+type Agent struct {
+	client         *http.Client
+	collector      RuntimeMetricsCollector
+	route          string
+	pollInterval   time.Duration
+	reportInterval time.Duration
+}
+
+func NewAgent(client *http.Client, collector RuntimeMetricsCollector, route string, pollInterval time.Duration, reportInterval time.Duration) *Agent {
+	return &Agent{
+		client:         client,
+		collector:      collector,
+		route:          route,
+		pollInterval:   pollInterval,
+		reportInterval: reportInterval,
+	}
+}
+
+func (a *Agent) Start() {
+	fmt.Println("Starting agent")
+	collectCounter := int(a.reportInterval / a.pollInterval)
+	metrics := []model.Metrics{}
+	for {
+		for range collectCounter {
+			metrics = a.collector.Collect()
+			time.Sleep(a.pollInterval)
+		}
+		a.sendMetrics(metrics)
+	}
+}
+
+func (a *Agent) sendMetrics(metrics []model.Metrics) {
+	for _, metric := range metrics {
+		url, err := a.generateUrl(metric)
+		if err != nil {
+			fmt.Println("Error generating url: ", err, ". Skipping...")
+			continue
+		}
+		fmt.Println("Sending metric: ", metric.String(), "to url: ", url)
+		response, err := a.client.Post(url, "text/plain", strings.NewReader(""))
+		if err != nil {
+			fmt.Println("Error sending metric: ", err, ". Skipping...")
+			continue
+		}
+		defer response.Body.Close()
+		fmt.Println("Response: ", response.Status)
+	}
+}
+
+func (a *Agent) generateUrl(metric model.Metrics) (string, error) {
+	if metric.MType == model.Counter {
+		if metric.Delta == nil {
+			return "", fmt.Errorf("metric %s has no delta", metric.ID)
+		}
+		return fmt.Sprintf("%s%s/%s/%d", a.route, metric.MType, metric.ID, *metric.Delta), nil
+	} else {
+		if metric.Value == nil {
+			return "", fmt.Errorf("metric %s has no value", metric.ID)
+		}
+		return fmt.Sprintf("%s%s/%s/%f", a.route, metric.MType, metric.ID, *metric.Value), nil
+	}
+}

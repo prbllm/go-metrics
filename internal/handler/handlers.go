@@ -17,8 +17,9 @@ func NewHandlers(metricsService service.MetricsServiceInterface) *Handlers {
 }
 
 func (h *Handlers) UpdateHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("method=%s uri=%s\n", r.Method, r.RequestURI)
 	if r.Method != http.MethodPost {
-		fmt.Println("Method not allowed")
+		fmt.Printf("Method %s not allowed\n", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -30,6 +31,7 @@ func (h *Handlers) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Invalid path")
 		http.NotFound(w, r)
 		return
+
 	}
 
 	metricType := parts[0]
