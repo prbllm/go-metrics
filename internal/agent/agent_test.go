@@ -14,40 +14,40 @@ func TestAgentGenerateUrl(t *testing.T) {
 
 	testData := []struct {
 		metric      model.Metrics
-		expectedUrl string
+		expectedURL string
 		expectError bool
 	}{
 		{
 			metric:      model.Metrics{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
-			expectedUrl: "http://localhost:8080/update/gauge/test_metric/1.000000",
+			expectedURL: "http://localhost:8080/update/gauge/test_metric/1.000000",
 			expectError: false,
 		},
 		{
 			metric:      model.Metrics{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
-			expectedUrl: "http://localhost:8080/update/counter/test_metric/1",
+			expectedURL: "http://localhost:8080/update/counter/test_metric/1",
 			expectError: false,
 		},
 		{
 			metric:      model.Metrics{ID: "test_metric", MType: model.Gauge},
-			expectedUrl: "",
+			expectedURL: "",
 			expectError: true,
 		},
 		{
 			metric:      model.Metrics{ID: "test_metric", MType: model.Counter},
-			expectedUrl: "",
+			expectedURL: "",
 			expectError: true,
 		},
 	}
 
 	agent := NewAgent(nil, nil, "http://localhost:8080/update/", 0, 0)
 	for _, test := range testData {
-		url, err := agent.generateUrl(test.metric)
+		url, err := agent.generateURL(test.metric)
 		if test.expectError {
 			require.Error(t, err, "Expected error")
 		} else {
-			require.NoError(t, err, "Failed to generate url")
+			require.NoError(t, err, "Failed to generate URL")
 		}
-		require.Equal(t, test.expectedUrl, url, "Url is not equal to expected")
+		require.Equal(t, test.expectedURL, url, "URL is not equal to expected")
 	}
 }
 

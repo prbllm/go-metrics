@@ -68,7 +68,7 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 	}
 
 	for _, metric := range metrics {
-		url, err := a.generateUrl(metric)
+		url, err := a.generateURL(metric)
 		if err != nil {
 			fmt.Println("Error generating url: ", err, ". Skipping...")
 			continue
@@ -85,7 +85,7 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 	return nil
 }
 
-func (a *Agent) generateUrl(metric model.Metrics) (string, error) {
+func (a *Agent) generateURL(metric model.Metrics) (string, error) {
 	if metric.MType == model.Counter {
 		if metric.Delta == nil {
 			return "", fmt.Errorf("metric %s has no delta", metric.ID)
