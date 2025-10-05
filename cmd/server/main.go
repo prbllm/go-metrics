@@ -22,6 +22,9 @@ func main() {
 		r.Route(config.UpdatePath, func(r chi.Router) {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
 		})
+		r.Route(config.ValuePath, func(r chi.Router) {
+			r.Get("/{metricType}/{metricName}", handlers.GetValueHandler)
+		})
 	})
 
 	fmt.Println("Server starting on ", config.ServerPort)

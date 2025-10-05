@@ -26,11 +26,9 @@ func (h *Handlers) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metricType := chi.URLParam(r, "metricType")
-	fmt.Printf("metricType=%s\n", metricType)
 	metricName := chi.URLParam(r, "metricName")
-	fmt.Printf("metricName=%s\n", metricName)
 	metricValue := chi.URLParam(r, "metricValue")
-	fmt.Printf("metricValue=%s\n", metricValue)
+
 	if metricType == "" || metricName == "" || metricValue == "" {
 		fmt.Println("Invalid path")
 		http.NotFound(w, r)
@@ -84,11 +82,9 @@ func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Set content type to HTML
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	// Generate HTML page
 	html := `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,4 +109,41 @@ func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) 
 </html>`
 
 	w.Write([]byte(html))
+}
+
+func (h *Handlers) GetValueHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("method=%s uri=%s\n", r.Method, r.RequestURI)
+	if r.Method != http.MethodGet {
+		fmt.Printf("Method %s not allowed\n", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	metricType := chi.URLParam(r, "metricType")
+	metricName := chi.URLParam(r, "metricName")
+
+	if metricType == "" || metricName == "" {
+		fmt.Printf("Invalid path: Type=%s, Name=%s\n", metricType, metricName)
+		http.NotFound(w, r)
+		return
+	}
+
+	metric, err := h.metricsService.GetMetric(metricType, metricName)
+	if metric == nil || err != nil {
+		fmt.Printf("Error getting metric: %v\n", err)
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	fmt.Printf("metric=%s\n", metric.String())
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	if metric.MType == model.Counter && metric.Delta != nil {
+		fmt.Fprintf(w, "%d", *metric.Delta)
+	} else if metric.MType == model.Gauge && metric.Value != nil {
+		fmt.Fprintf(w, "%f", *metric.Value)
+	} else {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }

@@ -35,12 +35,16 @@ func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 }
 
 func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
+	if metric == nil {
+		return nil, fmt.Errorf("metric is nil")
+	}
+
 	key := m.generateKey(metric.MType, metric.ID)
-	metric, ok := m.metrics[key]
+	val, ok := m.metrics[key]
 	if !ok {
 		return nil, fmt.Errorf("metric %s not found", key)
 	}
-	return metric, nil
+	return val, nil
 }
 
 func (m *MemStorage) GetAllMetrics() []*model.Metrics {

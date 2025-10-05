@@ -109,3 +109,22 @@ func TestMetricsService_GetAllMetrics(t *testing.T) {
 	require.NoError(t, err, "Get all metrics failed")
 	require.Equal(t, expectedMetrics, metrics, "Metrics is not equal to expected")
 }
+
+func TestMetricsService_GetMetric(t *testing.T) {
+	storage := repository.NewMemStorage()
+	service := NewMetricsService(storage)
+	expectedValue := float64(10.5)
+
+	expectedMetric := &model.Metrics{MType: model.Gauge, ID: "test_gauge", Value: &expectedValue}
+	service.UpdateMetric(model.Gauge, expectedMetric.ID, strconv.FormatFloat(expectedValue, 'f', -1, 64))
+	metric, err := service.GetMetric(model.Gauge, expectedMetric.ID)
+	require.NoError(t, err, "Get metric failed")
+	require.Equal(t, metric, expectedMetric, "Metric is not equal to expected")
+
+	expectedDelta := int64(10)
+	expectedMetric = &model.Metrics{MType: model.Counter, ID: "test_counter", Delta: &expectedDelta}
+	service.UpdateMetric(model.Counter, expectedMetric.ID, strconv.FormatInt(expectedDelta, 10))
+	metric, err = service.GetMetric(model.Counter, expectedMetric.ID)
+	require.NoError(t, err, "Get metric failed")
+	require.Equal(t, metric, expectedMetric, "Metric is not equal to expected")
+}

@@ -28,6 +28,9 @@ func TestFullIntegration(t *testing.T) {
 		r.Route(config.UpdatePath, func(r chi.Router) {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
 		})
+		r.Route(config.ValuePath, func(r chi.Router) {
+			r.Get("/{metricType}/{metricName}", handlers.GetValueHandler)
+		})
 	})
 
 	server := httptest.NewServer(router)
@@ -142,6 +145,25 @@ func TestFullIntegration(t *testing.T) {
 		require.NoError(t, err, "Failed to read response body")
 		require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"), "Expected content type %s, got %s", "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
 		require.Contains(t, string(body), "test_all_metrics_counter: 10")
+	})
+
+	t.Run("get value", func(t *testing.T) {
+		requestUpdate, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/test_get_counter/10", nil)
+		require.NoError(t, err, "Failed to create request")
+		requestUpdate.Header.Set("Content-Type", "text/plain")
+
+		_, err = http.DefaultClient.Do(requestUpdate)
+		require.NoError(t, err, "Failed to send request")
+
+		req, err := http.NewRequest(http.MethodGet, server.URL+"/value/counter/test_get_counter", nil)
+		require.NoError(t, err, "Failed to create request")
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err, "Failed to read response body")
+		require.Equal(t, "10", string(body), "Expected body 10, got %s", string(body))
 	})
 
 	t.Run("error cases", func(t *testing.T) {

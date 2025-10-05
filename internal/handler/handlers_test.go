@@ -18,6 +18,9 @@ func setupTestRouter(handlers *Handlers) *chi.Mux {
 		r.Route(config.UpdatePath, func(r chi.Router) {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
 		})
+		r.Route(config.ValuePath, func(r chi.Router) {
+			r.Get("/{metricType}/{metricName}", handlers.GetValueHandler)
+		})
 	})
 	return router
 }
@@ -143,6 +146,59 @@ func TestGetAllMetricsHandler(t *testing.T) {
 			if test.expectedContentType != "" {
 				require.Equal(t, test.expectedContentType, rr.Header().Get("Content-Type"), "Expected content type %s, got %s", test.expectedContentType, rr.Header().Get("Content-Type"))
 			}
+		})
+	}
+}
+
+func TestGetValueHandler(t *testing.T) {
+	tests := []struct {
+		name               string
+		method             string
+		path               string
+		expectedStatusCode int
+	}{
+		{
+			name:               "valid GET request",
+			method:             http.MethodGet,
+			path:               "/value/gauge/test_gauge",
+			expectedStatusCode: http.StatusNotFound,
+		},
+		{
+			name:               "invalid method - POST",
+			method:             http.MethodPost,
+			path:               "/value/gauge/test_gauge",
+			expectedStatusCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:               "invalid path - missing parts",
+			method:             http.MethodGet,
+			path:               "/gauge/value/test",
+			expectedStatusCode: http.StatusNotFound,
+		},
+		{
+			name:               "invalid metric type",
+			method:             http.MethodGet,
+			path:               "/value/invalid/test_gauge",
+			expectedStatusCode: http.StatusNotFound,
+		},
+		{
+			name:               "invalid metric name",
+			method:             http.MethodGet,
+			path:               "/value/gauge/test",
+			expectedStatusCode: http.StatusNotFound,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handlers := NewHandlers(&service.MockMetricsService{})
+			router := setupTestRouter(handlers)
+
+			req := httptest.NewRequest(test.method, test.path, nil)
+			rr := httptest.NewRecorder()
+
+			router.ServeHTTP(rr, req)
+			require.Equal(t, test.expectedStatusCode, rr.Code, "Expected status code %d, got %d", test.expectedStatusCode, rr.Code)
 		})
 	}
 }
