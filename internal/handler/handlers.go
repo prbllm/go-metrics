@@ -141,7 +141,7 @@ func (h *Handlers) GetValueHandler(w http.ResponseWriter, r *http.Request) {
 	if metric.MType == model.Counter && metric.Delta != nil {
 		fmt.Fprintf(w, "%d", *metric.Delta)
 	} else if metric.MType == model.Gauge && metric.Value != nil {
-		fmt.Fprintf(w, "%f", *metric.Value)
+		fmt.Fprintf(w, "%g", *metric.Value)
 	} else {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
