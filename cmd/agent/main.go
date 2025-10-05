@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -9,8 +10,7 @@ import (
 )
 
 func main() {
-	client := &http.Client{}
-	collector := agent.RuntimeMetricsCollector{}
-	agent := agent.NewAgent(client, collector, "http://"+config.ServerAddress+config.ServerPort+config.UpdatePath, time.Duration(config.AgentPollIntervalSeconds)*time.Second, time.Duration(config.AgentReportIntervalSeconds)*time.Second)
-	agent.Start()
+	collector := &agent.RuntimeMetricsCollector{}
+	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.ServerAddress+config.ServerPort+config.UpdatePath, time.Duration(config.AgentPollIntervalSeconds)*time.Second, time.Duration(config.AgentReportIntervalSeconds)*time.Second)
+	agent.Start(context.Background())
 }

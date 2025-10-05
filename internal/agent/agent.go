@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,13 +12,13 @@ import (
 
 type Agent struct {
 	client         *http.Client
-	collector      RuntimeMetricsCollector
+	collector      *RuntimeMetricsCollector
 	route          string
 	pollInterval   time.Duration
 	reportInterval time.Duration
 }
 
-func NewAgent(client *http.Client, collector RuntimeMetricsCollector, route string, pollInterval time.Duration, reportInterval time.Duration) *Agent {
+func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, route string, pollInterval time.Duration, reportInterval time.Duration) *Agent {
 	return &Agent{
 		client:         client,
 		collector:      collector,
@@ -27,20 +28,45 @@ func NewAgent(client *http.Client, collector RuntimeMetricsCollector, route stri
 	}
 }
 
-func (a *Agent) Start() {
+func (a *Agent) Start(context context.Context) {
 	fmt.Println("Starting agent")
+	if a.collector == nil {
+		fmt.Println("Collector is nil")
+		return
+	}
+
 	collectCounter := int(a.reportInterval / a.pollInterval)
-	metrics := []model.Metrics{}
 	for {
+		select {
+		case <-context.Done():
+			fmt.Println("Context done")
+			return
+		default:
+		}
+
+		metrics := []model.Metrics{}
 		for range collectCounter {
+			select {
+			case <-context.Done():
+				fmt.Println("Context done")
+				return
+			default:
+			}
 			metrics = a.collector.Collect()
 			time.Sleep(a.pollInterval)
 		}
-		a.sendMetrics(metrics)
+		err := a.sendMetrics(metrics)
+		if err != nil {
+			fmt.Println("Error sending metrics: ", err)
+		}
 	}
 }
 
-func (a *Agent) sendMetrics(metrics []model.Metrics) {
+func (a *Agent) sendMetrics(metrics []model.Metrics) error {
+	if a.client == nil {
+		return fmt.Errorf("client is nil")
+	}
+
 	for _, metric := range metrics {
 		url, err := a.generateUrl(metric)
 		if err != nil {
@@ -56,6 +82,7 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) {
 		defer response.Body.Close()
 		fmt.Println("Response: ", response.Status)
 	}
+	return nil
 }
 
 func (a *Agent) generateUrl(metric model.Metrics) (string, error) {
