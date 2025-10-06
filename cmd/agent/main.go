@@ -10,7 +10,12 @@ import (
 )
 
 func main() {
+	err := config.InitConfig("agent")
+	if err != nil {
+		panic(err)
+	}
+
 	collector := &agent.RuntimeMetricsCollector{}
-	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.ServerAddress+config.ServerPort+config.UpdatePath, time.Duration(config.AgentPollIntervalSeconds)*time.Second, time.Duration(config.AgentReportIntervalSeconds)*time.Second)
+	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.GetConfig().ServerHost+config.CommonPath+config.UpdatePath, time.Duration(config.GetConfig().AgentPollInterval)*time.Second, time.Duration(config.GetConfig().AgentReportInterval)*time.Second)
 	agent.Start(context.Background())
 }

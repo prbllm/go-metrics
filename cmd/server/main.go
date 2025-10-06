@@ -13,6 +13,11 @@ import (
 )
 
 func main() {
+	err := config.InitConfig("server")
+	if err != nil {
+		panic(err)
+	}
+
 	storage := repository.NewMemStorage()
 	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService)
@@ -27,8 +32,8 @@ func main() {
 		})
 	})
 
-	fmt.Println("Server starting on ", config.ServerPort)
-	err := http.ListenAndServe(config.ServerPort, router)
+	fmt.Println("Server starting on ", config.GetConfig().ServerHost)
+	err = http.ListenAndServe(config.GetConfig().ServerHost, router)
 	if err != nil {
 		panic(err)
 	}
