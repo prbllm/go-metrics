@@ -86,15 +86,23 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 }
 
 func (a *Agent) generateURL(metric model.Metrics) (string, error) {
+	var value string
+
 	if metric.MType == model.Counter {
 		if metric.Delta == nil {
 			return "", fmt.Errorf("metric %s has no delta", metric.ID)
 		}
-		return fmt.Sprintf("%s%s/%s/%d", a.route, metric.MType, metric.ID, *metric.Delta), nil
+		value = fmt.Sprintf("%d", *metric.Delta)
 	} else {
 		if metric.Value == nil {
 			return "", fmt.Errorf("metric %s has no value", metric.ID)
 		}
-		return fmt.Sprintf("%s%s/%s/%f", a.route, metric.MType, metric.ID, *metric.Value), nil
+		value = fmt.Sprintf("%f", *metric.Value)
 	}
+
+	url := a.route
+	if url[len(url)-1] != '/' {
+		url += "/"
+	}
+	return fmt.Sprintf("%s%s/%s/%s", url, metric.MType, metric.ID, value), nil
 }
