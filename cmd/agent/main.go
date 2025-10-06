@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/prbllm/go-metrics/internal/agent"
 	"github.com/prbllm/go-metrics/internal/config"
@@ -16,6 +15,6 @@ func main() {
 	}
 
 	collector := &agent.RuntimeMetricsCollector{}
-	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.GetConfig().ServerHost+config.CommonPath+config.UpdatePath, time.Duration(config.GetConfig().AgentPollInterval)*time.Second, time.Duration(config.GetConfig().AgentReportInterval)*time.Second)
+	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.GetConfig().ServerHost+config.CommonPath+config.UpdatePath, config.GetConfig().AgentPollInterval, config.GetConfig().AgentReportInterval)
 	agent.Start(context.Background())
 }
