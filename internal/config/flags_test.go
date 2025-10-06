@@ -25,7 +25,7 @@ func TestParseArgs(t *testing.T) {
 		},
 		{
 			name: "Agent flags",
-			args: []string{"-p", "3s", "-r", "12s"},
+			args: []string{"-p", "3", "-r", "12"},
 			expected: func() Config {
 				cfg := *defaultConfig()
 				cfg.AgentPollInterval = 3 * time.Second
@@ -35,7 +35,7 @@ func TestParseArgs(t *testing.T) {
 		},
 		{
 			name: "Server and Agent flags",
-			args: []string{"-a", "localhost:8081", "-p", "3s", "-r", "12s"},
+			args: []string{"-a", "localhost:8081", "-p", "3", "-r", "12"},
 			expected: func() Config {
 				cfg := *defaultConfig()
 				cfg.ServerHost = "localhost:8081"
