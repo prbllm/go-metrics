@@ -14,7 +14,7 @@ type Config struct {
 	AgentReportInterval time.Duration
 }
 
-var GlobalConfig *Config
+var globalConfig *Config
 
 func defaultConfig() *Config {
 	return &Config{
@@ -25,15 +25,15 @@ func defaultConfig() *Config {
 }
 
 func InitConfig(flagsetName string) error {
-	GlobalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError)
-	return GlobalConfig.Validate()
+	globalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError)
+	return globalConfig.Validate()
 }
 
 func GetConfig() *Config {
-	if GlobalConfig == nil {
-		GlobalConfig = defaultConfig()
+	if globalConfig == nil {
+		globalConfig = defaultConfig()
 	}
-	return GlobalConfig
+	return globalConfig
 }
 
 func (c *Config) Validate() error {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/prbllm/go-metrics/internal/model"
@@ -11,7 +12,7 @@ type MetricsService struct {
 	repository repository.MetricsRepository
 }
 
-func NewMetricsService(repository repository.MetricsRepository) *MetricsService {
+func NewMetricsService(repository repository.MetricsRepository) Service {
 	return &MetricsService{repository: repository}
 }
 
@@ -30,10 +31,16 @@ func (s *MetricsService) UpdateMetric(metricType, metricName, metricValue string
 	}
 	switch metricType {
 	case model.Counter:
-		delta, _ := strconv.ParseInt(metricValue, 10, 64)
+		delta, err := strconv.ParseInt(metricValue, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid metric value: %w", err)
+		}
 		metric.Delta = &delta
 	case model.Gauge:
-		value, _ := strconv.ParseFloat(metricValue, 64)
+		value, err := strconv.ParseFloat(metricValue, 64)
+		if err != nil {
+			return fmt.Errorf("invalid metric value: %w", err)
+		}
 		metric.Value = &value
 	}
 	return s.repository.UpdateMetric(metric)

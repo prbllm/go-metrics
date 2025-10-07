@@ -10,11 +10,11 @@ import (
 )
 
 type Handlers struct {
-	metricsService service.MetricsServiceInterface
+	service service.Service
 }
 
-func NewHandlers(metricsService service.MetricsServiceInterface) *Handlers {
-	return &Handlers{metricsService: metricsService}
+func NewHandlers(service service.Service) *Handlers {
+	return &Handlers{service: service}
 }
 
 func (h *Handlers) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
@@ -49,8 +49,8 @@ func (h *Handlers) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Received metric: Type=%s, Name=%s, Value=%s\n", metricType, metricName, metricValue)
 
-	if h.metricsService != nil {
-		if err := h.metricsService.UpdateMetric(metricType, metricName, metricValue); err != nil {
+	if h.service != nil {
+		if err := h.service.UpdateMetric(metricType, metricName, metricValue); err != nil {
 			fmt.Printf("Error updating metric: %v\n", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
@@ -75,7 +75,7 @@ func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	metrics, err := h.metricsService.GetAllMetrics()
+	metrics, err := h.service.GetAllMetrics()
 	if err != nil {
 		fmt.Printf("Error getting metrics: %v\n", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -128,7 +128,7 @@ func (h *Handlers) GetValueHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metric, err := h.metricsService.GetMetric(metricType, metricName)
+	metric, err := h.service.GetMetric(metricType, metricName)
 	if metric == nil || err != nil {
 		fmt.Printf("Error getting metric: %v\n", err)
 		http.Error(w, "Not found", http.StatusNotFound)

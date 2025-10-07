@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
@@ -15,7 +16,8 @@ import (
 func main() {
 	err := config.InitConfig("server")
 	if err != nil {
-		panic(err)
+		fmt.Println("Error initializing config: ", err)
+		os.Exit(1)
 	}
 
 	storage := repository.NewMemStorage()
@@ -35,6 +37,7 @@ func main() {
 	fmt.Println("Server starting on ", config.GetConfig().ServerHost)
 	err = http.ListenAndServe(config.GetConfig().ServerHost, router)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error starting server: ", err)
+		os.Exit(1)
 	}
 }

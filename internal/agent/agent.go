@@ -79,8 +79,8 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 			fmt.Println("Error sending metric: ", err, ". Skipping...")
 			continue
 		}
-		defer response.Body.Close()
 		fmt.Println("Response: ", response.Status)
+		response.Body.Close()
 	}
 	return nil
 }
