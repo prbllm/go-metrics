@@ -1,0 +1,226 @@
+package main
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"testing"
+
+	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/handler"
+	"github.com/prbllm/go-metrics/internal/model"
+	"github.com/prbllm/go-metrics/internal/repository"
+	"github.com/prbllm/go-metrics/internal/service"
+	"github.com/stretchr/testify/require"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func TestFullIntegration(t *testing.T) {
+	storage := repository.NewMemStorage()
+	metricsService := service.NewMetricsService(storage)
+	handlers := handler.NewHandlers(metricsService)
+
+	router := chi.NewRouter()
+	router.Route(config.CommonPath, func(r chi.Router) {
+		r.Get("/", handlers.GetAllMetricsHandler)
+		r.Route(config.UpdatePath, func(r chi.Router) {
+			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
+		})
+		r.Route(config.ValuePath, func(r chi.Router) {
+			r.Get("/{metricType}/{metricName}", handlers.GetValueHandler)
+		})
+	})
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	t.Run("counter", func(t *testing.T) {
+		const metricName = "test_counter"
+		const metricValue = "10"
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/"+metricName+"/"+metricValue, nil)
+		require.NoError(t, err, "Failed to create request")
+
+		req.Header.Set("Content-Type", "text/plain")
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		metric, err := storage.GetMetric(&model.Metrics{MType: model.Counter, ID: metricName})
+		require.NoError(t, err, "Expected metric to be saved")
+
+		expectedValue, err := strconv.ParseInt(metricValue, 10, 64)
+		require.NoError(t, err)
+		require.Equal(t, expectedValue, *metric.Delta, "Metric value is not equal to expected")
+	})
+
+	t.Run("gauge", func(t *testing.T) {
+		const metricName = "test_gauge"
+		const metricValue = "3.14"
+		const metricValue2 = "132.42"
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/update/gauge/"+metricName+"/"+metricValue, nil)
+		require.NoError(t, err, "Failed to create request")
+
+		req.Header.Set("Content-Type", "text/plain")
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		metric, err := storage.GetMetric(&model.Metrics{MType: model.Gauge, ID: metricName})
+		require.NoError(t, err, "Expected metric to be saved")
+		expectedValue, err := strconv.ParseFloat(metricValue, 64)
+		require.NoError(t, err)
+		require.Equal(t, expectedValue, *metric.Value, "Metric value is not equal to expected")
+
+		req2, err := http.NewRequest(http.MethodPost, server.URL+"/update/gauge/"+metricName+"/"+metricValue2, nil)
+		require.NoError(t, err, "Failed to create request")
+
+		req2.Header.Set("Content-Type", "text/plain")
+		resp2, err := http.DefaultClient.Do(req2)
+		require.NoError(t, err, "Failed to send request")
+
+		resp2.Body.Close()
+
+		metric, err = storage.GetMetric(&model.Metrics{MType: model.Gauge, ID: metricName})
+		require.NoError(t, err, "Expected metric to be saved")
+		expectedValue, err = strconv.ParseFloat(metricValue2, 64)
+		require.NoError(t, err)
+		require.Equal(t, expectedValue, *metric.Value, "Metric value is not equal to expected")
+	})
+
+	t.Run("counter accumulation", func(t *testing.T) {
+		const metricName = "accumulator"
+		const metricValue = "5"
+		req1, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/"+metricName+"/"+metricValue, nil)
+		require.NoError(t, err, "Failed to create request")
+
+		req1.Header.Set("Content-Type", "text/plain")
+		resp1, err := http.DefaultClient.Do(req1)
+		require.NoError(t, err, "Failed to send request")
+
+		resp1.Body.Close()
+
+		req2, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/"+metricName+"/"+metricValue, nil)
+		require.NoError(t, err, "Failed to create request")
+
+		req2.Header.Set("Content-Type", "text/plain")
+		resp2, err := http.DefaultClient.Do(req2)
+		require.NoError(t, err, "Failed to send request")
+
+		resp2.Body.Close()
+
+		metric, err := storage.GetMetric(&model.Metrics{MType: model.Counter, ID: metricName})
+		require.NoError(t, err, "Expected metric to be saved")
+
+		expectedValue, err := strconv.ParseInt(metricValue, 10, 64)
+		require.NoError(t, err)
+		require.Equal(t, 2*expectedValue, *metric.Delta, "Expected delta is not equal to expected")
+	})
+
+	t.Run("get all metrics", func(t *testing.T) {
+		requestUpdate, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/test_all_metrics_counter/10", nil)
+		require.NoError(t, err, "Failed to create request")
+		requestUpdate.Header.Set("Content-Type", "text/plain")
+
+		responseUpdate, err := http.DefaultClient.Do(requestUpdate)
+		require.NoError(t, err, "Failed to send request")
+		responseUpdate.Body.Close()
+
+		req, err := http.NewRequest(http.MethodGet, server.URL+"/", nil)
+		require.NoError(t, err, "Failed to create request")
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err, "Failed to read response body")
+		require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"), "Expected content type %s, got %s", "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+		require.Contains(t, string(body), "test_all_metrics_counter: 10")
+	})
+
+	t.Run("get value", func(t *testing.T) {
+		requestUpdate, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/test_get_counter/10", nil)
+		require.NoError(t, err, "Failed to create request")
+		requestUpdate.Header.Set("Content-Type", "text/plain")
+
+		responseUpdate, err := http.DefaultClient.Do(requestUpdate)
+		require.NoError(t, err, "Failed to send request")
+		responseUpdate.Body.Close()
+
+		require.NoError(t, err, "Failed to send request")
+
+		req, err := http.NewRequest(http.MethodGet, server.URL+"/value/counter/test_get_counter", nil)
+		require.NoError(t, err, "Failed to create request")
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err, "Failed to read response body")
+		require.Equal(t, "10", string(body), "Expected body 10, got %s", string(body))
+	})
+
+	t.Run("error cases", func(t *testing.T) {
+		testCases := []struct {
+			name           string
+			path           string
+			method         string
+			expectedStatus int
+		}{
+			{
+				name:           "invalid method",
+				path:           "/update/counter/test/42",
+				method:         http.MethodGet,
+				expectedStatus: http.StatusMethodNotAllowed,
+			},
+			{
+				name:           "invalid path",
+				path:           "/update/counter/test",
+				method:         http.MethodPost,
+				expectedStatus: http.StatusNotFound,
+			},
+			{
+				name:           "invalid metric type",
+				path:           "/update/invalid/test/42",
+				method:         http.MethodPost,
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "invalid counter value",
+				path:           "/update/counter/test/abc",
+				method:         http.MethodPost,
+				expectedStatus: http.StatusBadRequest,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req, err := http.NewRequest(tc.method, server.URL+tc.path, nil)
+				if err != nil {
+					t.Fatalf("Failed to create request: %v", err)
+				}
+				req.Header.Set("Content-Type", "text/plain")
+
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil {
+					t.Fatalf("Failed to send request: %v", err)
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != tc.expectedStatus {
+					t.Errorf("Expected status %d, got %d", tc.expectedStatus, resp.StatusCode)
+				}
+			})
+		}
+	})
+}

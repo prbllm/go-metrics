@@ -1,0 +1,56 @@
+package repository
+
+import (
+	"fmt"
+
+	"github.com/prbllm/go-metrics/internal/model"
+)
+
+type MemStorage struct {
+	metrics map[string]*model.Metrics
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		metrics: make(map[string]*model.Metrics),
+	}
+}
+
+func (m *MemStorage) generateKey(metricType, name string) string {
+	return fmt.Sprintf("%s:%s", metricType, name)
+}
+
+func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
+	key := m.generateKey(metric.MType, metric.ID)
+
+	if metric.MType == model.Counter {
+		if existing, exists := m.metrics[key]; exists && existing.Delta != nil {
+			newDelta := *existing.Delta + *metric.Delta
+			metric.Delta = &newDelta
+		}
+	}
+	fmt.Printf("Updating metric: %s\n", metric.String())
+	m.metrics[key] = metric
+	return nil
+}
+
+func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
+	if metric == nil {
+		return nil, fmt.Errorf("metric is nil")
+	}
+
+	key := m.generateKey(metric.MType, metric.ID)
+	val, ok := m.metrics[key]
+	if !ok {
+		return nil, fmt.Errorf("metric %s not found", key)
+	}
+	return val, nil
+}
+
+func (m *MemStorage) GetAllMetrics() []*model.Metrics {
+	metrics := make([]*model.Metrics, 0, len(m.metrics))
+	for _, metric := range m.metrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
+}

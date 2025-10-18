@@ -1,4 +1,6 @@
-package models
+package model
+
+import "fmt"
 
 const (
 	Counter = "counter"
@@ -16,4 +18,25 @@ type Metrics struct {
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
 	Hash  string   `json:"hash,omitempty"`
+}
+
+func (m *Metrics) String() string {
+	metricString := fmt.Sprintf("Metric{ID: %s, MType: %s, ", m.ID, m.MType)
+	if m.Delta != nil {
+		metricString += fmt.Sprintf("Delta: %d, ", *m.Delta)
+	} else {
+		metricString += "Delta: nil, "
+	}
+	if m.Value != nil {
+		metricString += fmt.Sprintf("Value: %f, ", *m.Value)
+	} else {
+		metricString += "Value: nil, "
+	}
+	if m.Hash != "" {
+		metricString += fmt.Sprintf("Hash: %s", m.Hash)
+	} else {
+		metricString += "Hash: nil"
+	}
+	metricString += "}"
+	return metricString
 }
