@@ -10,12 +10,12 @@ func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorH
 
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
 
-	fs.StringVar(&config.ServerHost, "a", config.ServerHost, "Server address (default: localhost:8080)")
+	fs.StringVar(&config.ServerHost, ServerHostFlag, config.ServerHost, ServerHostDescription)
 
 	var reportIntervalSec int
 	var pollIntervalSec int
-	fs.IntVar(&reportIntervalSec, "r", int(config.AgentReportInterval.Seconds()), "Agent report interval in seconds (default: 10)")
-	fs.IntVar(&pollIntervalSec, "p", int(config.AgentPollInterval.Seconds()), "Agent poll interval in seconds (default: 2)")
+	fs.IntVar(&reportIntervalSec, ReportIntervalFlag, int(config.AgentReportInterval.Seconds()), ReportIntervalDescription)
+	fs.IntVar(&pollIntervalSec, PollIntervalFlag, int(config.AgentPollInterval.Seconds()), PollIntervalDescription)
 
 	fs.Parse(args)
 

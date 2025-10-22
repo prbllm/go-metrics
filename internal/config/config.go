@@ -18,9 +18,9 @@ var globalConfig *Config
 
 func defaultConfig() *Config {
 	return &Config{
-		ServerHost:          "localhost:8080",
-		AgentPollInterval:   2 * time.Second,
-		AgentReportInterval: 10 * time.Second,
+		ServerHost:          DefaultServerHost,
+		AgentPollInterval:   DefaultAgentPollInterval,
+		AgentReportInterval: DefaultAgentReportInterval,
 	}
 }
 
