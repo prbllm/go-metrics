@@ -1,17 +1,17 @@
 package agent
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"runtime"
 
+	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
 type RuntimeMetricsCollector struct{}
 
 func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
-	fmt.Println("Collecting runtime metrics...")
+	config.GetLogger().Debug("Collecting runtime metrics...")
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 

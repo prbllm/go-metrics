@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 
+	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
@@ -29,7 +30,7 @@ func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 			metric.Delta = &newDelta
 		}
 	}
-	fmt.Printf("Updating metric: %s\n", metric.String())
+	config.GetLogger().Debug("Updating metric: %s", metric.String())
 	m.metrics[key] = metric
 	return nil
 }
@@ -44,6 +45,7 @@ func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
 	if !ok {
 		return nil, fmt.Errorf("metric %s not found", key)
 	}
+	config.GetLogger().Debug("Getting metric: %s", val.String())
 	return val, nil
 }
 
@@ -52,5 +54,6 @@ func (m *MemStorage) GetAllMetrics() []*model.Metrics {
 	for _, metric := range m.metrics {
 		metrics = append(metrics, metric)
 	}
+	config.GetLogger().Debug("Getting all metrics (%s)...", len(metrics))
 	return metrics
 }

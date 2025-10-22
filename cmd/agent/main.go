@@ -17,6 +17,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = config.InitLogger()
+	if err != nil {
+		fmt.Println("Error initializing logger: ", err)
+		os.Exit(1)
+	}
+	defer config.GetLogger().Sync()
+
 	collector := &agent.RuntimeMetricsCollector{}
 	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.GetConfig().ServerHost+config.UpdatePath, config.GetConfig().AgentPollInterval, config.GetConfig().AgentReportInterval)
 	agent.Start(context.Background())

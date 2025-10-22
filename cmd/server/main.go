@@ -20,6 +20,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = config.InitLogger()
+	if err != nil {
+		fmt.Println("Error initializing logger: ", err)
+		os.Exit(1)
+	}
+	defer config.GetLogger().Sync()
+
 	storage := repository.NewMemStorage()
 	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService)
@@ -34,10 +41,9 @@ func main() {
 		})
 	})
 
-	fmt.Println("Server starting on ", config.GetConfig().ServerHost)
+	config.GetLogger().Info("Server starting on ", config.GetConfig().ServerHost)
 	err = http.ListenAndServe(config.GetConfig().ServerHost, router)
 	if err != nil {
-		fmt.Println("Error starting server: ", err)
-		os.Exit(1)
+		config.GetLogger().Fatal("Error starting server: ", err)
 	}
 }

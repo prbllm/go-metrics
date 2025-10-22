@@ -33,4 +33,17 @@ const (
 	AddressEnvVar        = "ADDRESS"
 	ReportIntervalEnvVar = "REPORT_INTERVAL"
 	PollIntervalEnvVar   = "POLL_INTERVAL"
+	LogLevelEnvVar       = "LOG_LEVEL"
+)
+
+const (
+	LogLevelDebug        = "debug"
+	LogLevelDebugShort   = "dbg"
+	LogLevelInfo         = "info"
+	LogLevelWarn         = "warn"
+	LogLevelWarning      = "warning"
+	LogLevelWarningShort = "wrn"
+	LogLevelError        = "error"
+	LogLevelErrorShort   = "err"
+	LogLevelFatal        = "fatal"
 )

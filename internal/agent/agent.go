@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
@@ -29,9 +30,10 @@ func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, route str
 }
 
 func (a *Agent) Start(context context.Context) {
-	fmt.Println("Starting agent")
+	config.GetLogger().Info("Starting agent")
 	if a.collector == nil {
-		fmt.Println("Collector is nil")
+
+		config.GetLogger().Error("Collector is nil")
 		return
 	}
 
@@ -39,7 +41,7 @@ func (a *Agent) Start(context context.Context) {
 	for {
 		select {
 		case <-context.Done():
-			fmt.Println("Context done")
+			config.GetLogger().Info("Context done")
 			return
 		default:
 		}
@@ -48,7 +50,7 @@ func (a *Agent) Start(context context.Context) {
 		for range collectCounter {
 			select {
 			case <-context.Done():
-				fmt.Println("Context done")
+				config.GetLogger().Info("Context done")
 				return
 			default:
 			}
@@ -57,7 +59,7 @@ func (a *Agent) Start(context context.Context) {
 		}
 		err := a.sendMetrics(metrics)
 		if err != nil {
-			fmt.Println("Error sending metrics: ", err)
+			config.GetLogger().Error("Error sending metrics: ", err)
 		}
 	}
 }
@@ -70,16 +72,16 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 	for _, metric := range metrics {
 		url, err := a.generateURL(metric)
 		if err != nil {
-			fmt.Println("Error generating url: ", err, ". Skipping...")
+			config.GetLogger().Error("Error generating url: ", err, ". Skipping...")
 			continue
 		}
-		fmt.Println("Sending metric: ", metric.String(), "to url: ", url)
+		config.GetLogger().Debug("Sending metric: ", metric.String(), "to url: ", url)
 		response, err := a.client.Post(url, "text/plain", strings.NewReader(""))
 		if err != nil {
-			fmt.Println("Error sending metric: ", err, ". Skipping...")
+			config.GetLogger().Error("Error sending metric: ", err, ". Skipping...")
 			continue
 		}
-		fmt.Println("Response: ", response.Status)
+		config.GetLogger().Debug("Response: ", response.Status)
 		response.Body.Close()
 	}
 	return nil
