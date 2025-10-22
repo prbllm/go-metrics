@@ -28,3 +28,9 @@ const (
 	ReportIntervalDescription = "Agent report interval in seconds (default: 10)"
 	PollIntervalDescription   = "Agent poll interval in seconds (default: 2)"
 )
+
+const (
+	AddressEnvVar        = "ADDRESS"
+	ReportIntervalEnvVar = "REPORT_INTERVAL"
+	PollIntervalEnvVar   = "POLL_INTERVAL"
+)

@@ -26,6 +26,7 @@ func defaultConfig() *Config {
 
 func InitConfig(flagsetName string) error {
 	globalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError)
+	globalConfig.loadFromEnvironment()
 	return globalConfig.Validate()
 }
 
@@ -55,4 +56,27 @@ func (c *Config) Validate() error {
 func (c *Config) String() string {
 	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v}",
 		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval)
+}
+
+func (c *Config) loadFromEnvironment() {
+	address, err := GetEnvironment(AddressEnvVar)
+	if err != nil {
+		// TODO: log error
+		return
+	}
+	c.ServerHost = address
+
+	reportInterval, err := GetEnvironmentInt(ReportIntervalEnvVar)
+	if err != nil {
+		// TODO: log error
+		return
+	}
+	c.AgentReportInterval = time.Duration(reportInterval) * time.Second
+
+	pollInterval, err := GetEnvironmentInt(PollIntervalEnvVar)
+	if err != nil {
+		// TODO: log error
+		return
+	}
+	c.AgentPollInterval = time.Duration(pollInterval) * time.Second
 }
