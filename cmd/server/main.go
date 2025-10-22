@@ -31,6 +31,9 @@ func main() {
 	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService)
 	router := chi.NewRouter()
+
+	router.Use(handler.LoggingMiddleware())
+
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandler)
 		r.Route(config.UpdatePath, func(r chi.Router) {
@@ -41,9 +44,9 @@ func main() {
 		})
 	})
 
-	config.GetLogger().Info("Server starting on ", config.GetConfig().ServerHost)
+	config.GetLogger().Infof("Server starting on ", config.GetConfig().ServerHost)
 	err = http.ListenAndServe(config.GetConfig().ServerHost, router)
 	if err != nil {
-		config.GetLogger().Fatal("Error starting server: ", err)
+		config.GetLogger().Fatalf("Error starting server: ", err)
 	}
 }

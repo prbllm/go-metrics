@@ -59,7 +59,7 @@ func (a *Agent) Start(context context.Context) {
 		}
 		err := a.sendMetrics(metrics)
 		if err != nil {
-			config.GetLogger().Error("Error sending metrics: ", err)
+			config.GetLogger().Errorf("Error sending metrics: ", err)
 		}
 	}
 }
@@ -72,16 +72,16 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 	for _, metric := range metrics {
 		url, err := a.generateURL(metric)
 		if err != nil {
-			config.GetLogger().Error("Error generating url: ", err, ". Skipping...")
+			config.GetLogger().Warnf("Error generating url: ", err, ". Skipping...")
 			continue
 		}
-		config.GetLogger().Debug("Sending metric: ", metric.String(), "to url: ", url)
+		config.GetLogger().Debugf("Sending metric: ", metric.String(), "to url: ", url)
 		response, err := a.client.Post(url, "text/plain", strings.NewReader(""))
 		if err != nil {
-			config.GetLogger().Error("Error sending metric: ", err, ". Skipping...")
+			config.GetLogger().Errorf("Error sending metric: ", err, ". Skipping...")
 			continue
 		}
-		config.GetLogger().Debug("Response: ", response.Status)
+		config.GetLogger().Debugf("Response: ", response.Status)
 		response.Body.Close()
 	}
 	return nil

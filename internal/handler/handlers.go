@@ -20,7 +20,7 @@ func NewHandlers(service service.Service) *Handlers {
 
 func (h *Handlers) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		config.GetLogger().Error("Method %s not allowed", r.Method)
+		config.GetLogger().Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -30,28 +30,28 @@ func (h *Handlers) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
 	metricValue := chi.URLParam(r, "metricValue")
 
 	if metricType == "" || metricName == "" || metricValue == "" {
-		config.GetLogger().Error("Invalid path")
+		config.GetLogger().Errorf("Invalid path")
 		http.NotFound(w, r)
 		return
 	}
 
 	if err := service.ValidateMetricType(metricType); err != nil {
-		config.GetLogger().Error("Invalid metric type: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
+		config.GetLogger().Errorf("Invalid metric type: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
 		http.Error(w, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	if err := service.ValidateMetricValue(metricType, metricValue); err != nil {
-		config.GetLogger().Error("Invalid metric value: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
+		config.GetLogger().Errorf("Invalid metric value: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
 		http.Error(w, "Invalid metric value", http.StatusBadRequest)
 		return
 	}
 
-	config.GetLogger().Info("Received metric: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
+	config.GetLogger().Infof("Received metric: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
 
 	if h.service != nil {
 		if err := h.service.UpdateMetric(metricType, metricName, metricValue); err != nil {
-			config.GetLogger().Error("Error updating metric: %v", err)
+			config.GetLogger().Errorf("Error updating metric: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -69,14 +69,14 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		config.GetLogger().Error("Method %s not allowed", r.Method)
+		config.GetLogger().Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	metrics, err := h.service.GetAllMetrics()
 	if err != nil {
-		config.GetLogger().Error("Error getting metrics: %v", err)
+		config.GetLogger().Errorf("Error getting metrics: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -112,7 +112,7 @@ func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handlers) GetValueHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		config.GetLogger().Error("Method %s not allowed", r.Method)
+		config.GetLogger().Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -121,14 +121,14 @@ func (h *Handlers) GetValueHandler(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "metricName")
 
 	if metricType == "" || metricName == "" {
-		config.GetLogger().Error("Invalid path: Type=%s, Name=%s", metricType, metricName)
+		config.GetLogger().Errorf("Invalid path: Type=%s, Name=%s", metricType, metricName)
 		http.NotFound(w, r)
 		return
 	}
 
 	metric, err := h.service.GetMetric(metricType, metricName)
 	if metric == nil || err != nil {
-		config.GetLogger().Error("Error getting metric: %v", err)
+		config.GetLogger().Errorf("Error getting metric: %v", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}

@@ -20,6 +20,9 @@ func InitLogger() error {
 	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("02-01-2006 15:04:05.000")
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 
+	config.DisableStacktrace = false
+	config.DisableCaller = false
+
 	logLevel, _ := GetEnvironment(LogLevelEnvVar)
 	switch strings.ToLower(logLevel) {
 	case LogLevelDebug, LogLevelDebugShort:
@@ -36,7 +39,9 @@ func InitLogger() error {
 		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	}
 
-	logger, err := config.Build()
+	logger, err := config.Build(
+		zap.AddStacktrace(zapcore.PanicLevel),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
@@ -46,7 +51,10 @@ func InitLogger() error {
 
 func GetLogger() *zap.SugaredLogger {
 	if sugarLogger == nil {
-		return nil
+		if InitLogger() != nil {
+			return nil
+		}
+		return sugarLogger
 	}
 	return sugarLogger
 }

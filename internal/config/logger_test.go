@@ -90,5 +90,5 @@ func TestGetLoggerWithoutInit(t *testing.T) {
 	sugarLogger = nil
 
 	logger := GetLogger()
-	assert.Nil(t, logger)
+	assert.NotNil(t, logger)
 }
