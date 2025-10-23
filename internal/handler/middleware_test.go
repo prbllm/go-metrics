@@ -36,7 +36,7 @@ func TestMiddlewareWithHandlers(t *testing.T) {
 
 	router := chi.NewRouter()
 	router.Use(LoggingMiddleware())
-	router.Get("/", handlers.GetAllMetricsHandler)
+	router.Get("/", handlers.GetAllMetricsHandlerByUrl)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()

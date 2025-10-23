@@ -14,12 +14,12 @@ import (
 func setupTestRouter(handlers *Handlers) *chi.Mux {
 	router := chi.NewRouter()
 	router.Route(config.CommonPath, func(r chi.Router) {
-		r.Get("/", handlers.GetAllMetricsHandler)
+		r.Get("/", handlers.GetAllMetricsHandlerByUrl)
 		r.Route(config.UpdatePath, func(r chi.Router) {
-			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
+			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByUrl)
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
-			r.Get("/{metricType}/{metricName}", handlers.GetValueHandler)
+			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)
 		})
 	})
 	return router

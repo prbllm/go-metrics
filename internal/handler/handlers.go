@@ -18,7 +18,7 @@ func NewHandlers(service service.Service) *Handlers {
 	return &Handlers{service: service}
 }
 
-func (h *Handlers) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) UpdateMetricHandlerByUrl(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		config.GetLogger().Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -67,7 +67,7 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) GetAllMetricsHandlerByUrl(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		config.GetLogger().Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -110,7 +110,7 @@ func (h *Handlers) GetAllMetricsHandler(w http.ResponseWriter, r *http.Request) 
 	w.Write([]byte(html))
 }
 
-func (h *Handlers) GetValueHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) GetValueHandlerByUrl(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		config.GetLogger().Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
