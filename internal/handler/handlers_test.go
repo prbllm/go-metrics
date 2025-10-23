@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ func setupTestRouter(handlers *Handlers) *chi.Mux {
 		r.Get("/", handlers.GetAllMetricsHandlerByUrl)
 		r.Route(config.UpdatePath, func(r chi.Router) {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByUrl)
+			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)
@@ -82,7 +84,7 @@ func TestUpdateHandler(t *testing.T) {
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
-			req.Header.Set("Content-Type", "text/plain")
+			req.Header.Set(config.ContentTypeHeader, config.ContentTypeTextPlain)
 
 			rr := httptest.NewRecorder()
 
@@ -195,6 +197,97 @@ func TestGetValueHandler(t *testing.T) {
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
+			rr := httptest.NewRecorder()
+
+			router.ServeHTTP(rr, req)
+			require.Equal(t, test.expectedStatusCode, rr.Code, "Expected status code %d, got %d", test.expectedStatusCode, rr.Code)
+		})
+	}
+}
+
+func TestUpdateMetricHandlerByJSON(t *testing.T) {
+	tests := []struct {
+		name               string
+		method             string
+		path               string
+		contentType        string
+		requestBody        string
+		expectedStatusCode int
+	}{
+		{
+			name:               "valid gauge JSON request",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test_gauge", "type": "gauge", "value": 3.14}`,
+			expectedStatusCode: http.StatusOK,
+		},
+		{
+			name:               "valid counter JSON request",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test_counter", "type": "counter", "delta": 42}`,
+			expectedStatusCode: http.StatusOK,
+		},
+		{
+			name:               "invalid method - GET",
+			method:             http.MethodGet,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test", "type": "gauge", "value": 1.0}`,
+			expectedStatusCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:               "invalid content type - text/plain",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeTextPlain,
+			requestBody:        `{"id": "test", "type": "gauge", "value": 1.0}`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid JSON - malformed",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test", "type": "gauge", "value": 1.0`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid JSON - missing required fields",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test"}`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid metric type in JSON",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test", "type": "invalid", "value": 1.0}`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "empty request body",
+			method:             http.MethodPost,
+			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        "",
+			expectedStatusCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handlers := NewHandlers(&service.MockMetricsService{})
+			router := setupTestRouter(handlers)
+
+			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
+			req.Header.Set(config.ContentTypeHeader, test.contentType)
+
 			rr := httptest.NewRecorder()
 
 			router.ServeHTTP(rr, req)

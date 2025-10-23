@@ -38,6 +38,7 @@ func main() {
 		r.Get("/", handlers.GetAllMetricsHandlerByUrl)
 		r.Route(config.UpdatePath, func(r chi.Router) {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByUrl)
+			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)

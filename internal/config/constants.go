@@ -47,3 +47,12 @@ const (
 	LogLevelErrorShort   = "err"
 	LogLevelFatal        = "fatal"
 )
+
+const (
+	ContentTypeHeader = "Content-Type"
+)
+
+const (
+	ContentTypeJSON      = "application/json"
+	ContentTypeTextPlain = "text/plain"
+)

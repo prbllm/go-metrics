@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -57,6 +58,43 @@ func (h *Handlers) UpdateMetricHandlerByUrl(w http.ResponseWriter, r *http.Reque
 		}
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		config.GetLogger().Errorf("Method %s not allowed", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
+		config.GetLogger().Errorf("Invalid content type: %s", contentType)
+		http.Error(w, "Invalid content type", http.StatusBadRequest)
+		return
+	}
+
+	var metric model.Metrics
+	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+		config.GetLogger().Errorf("Error decoding JSON: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if err := service.ValidateMetric(&metric); err != nil {
+		config.GetLogger().Errorf("Invalid metric: %v", err)
+		http.Error(w, "Invalid metric", http.StatusBadRequest)
+		return
+	}
+
+	config.GetLogger().Infof("Received metric: %s", metric.String())
+
+	if err := h.service.UpdateMetricByStruct(&metric); err != nil {
+		config.GetLogger().Errorf("Error updating metric: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
