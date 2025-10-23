@@ -22,6 +22,7 @@ func setupTestRouter(handlers *Handlers) *chi.Mux {
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)
+			r.Post("/", handlers.GetValueHandlerByJSON)
 		})
 	})
 	return router
@@ -274,6 +275,97 @@ func TestUpdateMetricHandlerByJSON(t *testing.T) {
 			name:               "empty request body",
 			method:             http.MethodPost,
 			path:               "/update",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        "",
+			expectedStatusCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handlers := NewHandlers(&service.MockMetricsService{})
+			router := setupTestRouter(handlers)
+
+			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
+			req.Header.Set(config.ContentTypeHeader, test.contentType)
+
+			rr := httptest.NewRecorder()
+
+			router.ServeHTTP(rr, req)
+			require.Equal(t, test.expectedStatusCode, rr.Code, "Expected status code %d, got %d", test.expectedStatusCode, rr.Code)
+		})
+	}
+}
+
+func TestGetValueHandlerByJSON(t *testing.T) {
+	tests := []struct {
+		name               string
+		method             string
+		path               string
+		contentType        string
+		requestBody        string
+		expectedStatusCode int
+	}{
+		{
+			name:               "valid gauge JSON request",
+			method:             http.MethodPost,
+			path:               "/value",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test_gauge", "type": "gauge"}`,
+			expectedStatusCode: http.StatusNotFound,
+		},
+		{
+			name:               "valid counter JSON request",
+			method:             http.MethodPost,
+			path:               "/value",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test_counter", "type": "counter"}`,
+			expectedStatusCode: http.StatusNotFound,
+		},
+		{
+			name:               "invalid method - GET",
+			method:             http.MethodGet,
+			path:               "/value",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test", "type": "gauge"}`,
+			expectedStatusCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:               "invalid content type - text/plain",
+			method:             http.MethodPost,
+			path:               "/value",
+			contentType:        config.ContentTypeTextPlain,
+			requestBody:        `{"id": "test", "type": "gauge"}`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid JSON - malformed",
+			method:             http.MethodPost,
+			path:               "/value",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test", "type": "gauge"`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid JSON - missing required fields",
+			method:             http.MethodPost,
+			path:               "/value",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test"}`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid metric type in JSON",
+			method:             http.MethodPost,
+			path:               "/value",
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `{"id": "test", "type": "invalid"}`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "empty request body",
+			method:             http.MethodPost,
+			path:               "/value",
 			contentType:        config.ContentTypeJSON,
 			requestBody:        "",
 			expectedStatusCode: http.StatusBadRequest,

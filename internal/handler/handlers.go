@@ -171,7 +171,7 @@ func (h *Handlers) GetValueHandlerByUrl(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set(config.ContentTypeHeader, config.ContentTypeTextPlain)
 	w.WriteHeader(http.StatusOK)
 	if metric.MType == model.Counter && metric.Delta != nil {
 		fmt.Fprintf(w, "%d", *metric.Delta)
@@ -181,4 +181,42 @@ func (h *Handlers) GetValueHandlerByUrl(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		config.GetLogger().Errorf("Method %s not allowed", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
+		config.GetLogger().Errorf("Invalid content type: %s", contentType)
+		http.Error(w, "Invalid content type", http.StatusBadRequest)
+		return
+	}
+
+	var metric model.Metrics
+	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+		config.GetLogger().Errorf("Error decoding JSON: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if err := service.ValidateMetricType(metric.MType); err != nil {
+		config.GetLogger().Errorf("Invalid metric type: %v", err)
+		http.Error(w, "Invalid metric type", http.StatusBadRequest)
+		return
+	}
+
+	metricLoaded, err := h.service.GetMetric(metric.MType, metric.ID)
+	if metricLoaded == nil || err != nil {
+		config.GetLogger().Errorf("Error getting metric: %v", err)
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set(config.ContentTypeHeader, config.ContentTypeJSON)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(metricLoaded)
 }

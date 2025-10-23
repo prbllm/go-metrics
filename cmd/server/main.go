@@ -42,6 +42,7 @@ func main() {
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)
+			r.Post("/", handlers.GetValueHandlerByJSON)
 		})
 	})
 
