@@ -46,9 +46,9 @@ func main() {
 		})
 	})
 
-	config.GetLogger().Infof("Server starting on ", config.GetConfig().ServerHost)
+	config.GetLogger().Infof("Server starting on %s", config.GetConfig().ServerHost)
 	err = http.ListenAndServe(config.GetConfig().ServerHost, router)
 	if err != nil {
-		config.GetLogger().Fatalf("Error starting server: ", err)
+		config.GetLogger().Fatalf("Error starting server: %v", err)
 	}
 }

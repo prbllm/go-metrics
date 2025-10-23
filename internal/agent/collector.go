@@ -53,9 +53,23 @@ func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
 }
 
 func (c *RuntimeMetricsCollector) ToFloatPointer(number any) *float64 {
-	f, ok := number.(float64)
-	if !ok {
-		return nil
+	switch v := number.(type) {
+	case float64:
+		return &v
+	case uint64:
+		f := float64(v)
+		return &f
+	case uint32:
+		f := float64(v)
+		return &f
+	case int64:
+		f := float64(v)
+		return &f
+	case int32:
+		f := float64(v)
+		return &f
+	default:
+		zero := 0.0
+		return &zero
 	}
-	return &f
 }

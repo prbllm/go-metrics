@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -27,9 +29,11 @@ func TestFullIntegration(t *testing.T) {
 		r.Get("/", handlers.GetAllMetricsHandlerByUrl)
 		r.Route(config.UpdatePath, func(r chi.Router) {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByUrl)
+			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)
+			r.Post("/", handlers.GetValueHandlerByJSON)
 		})
 	})
 
@@ -220,6 +224,160 @@ func TestFullIntegration(t *testing.T) {
 				if resp.StatusCode != tc.expectedStatus {
 					t.Errorf("Expected status %d, got %d", tc.expectedStatus, resp.StatusCode)
 				}
+			})
+		}
+	})
+
+	t.Run("JSON counter", func(t *testing.T) {
+		const metricName = "test_json_counter"
+		metricValue := int64(15)
+
+		metric := model.Metrics{
+			ID:    metricName,
+			MType: model.Counter,
+			Delta: &metricValue,
+		}
+
+		jsonData, err := json.Marshal(metric)
+		require.NoError(t, err, "Failed to marshal metric to JSON")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		savedMetric, err := storage.GetMetric(&model.Metrics{MType: model.Counter, ID: metricName})
+		require.NoError(t, err, "Expected metric to be saved")
+		require.Equal(t, metricValue, *savedMetric.Delta, "Metric value is not equal to expected")
+	})
+
+	t.Run("JSON gauge", func(t *testing.T) {
+		const metricName = "test_json_gauge"
+		metricValue := 3.14159
+
+		metric := model.Metrics{
+			ID:    metricName,
+			MType: model.Gauge,
+			Value: &metricValue,
+		}
+
+		jsonData, err := json.Marshal(metric)
+		require.NoError(t, err, "Failed to marshal metric to JSON")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		savedMetric, err := storage.GetMetric(&model.Metrics{MType: model.Gauge, ID: metricName})
+		require.NoError(t, err, "Expected metric to be saved")
+		require.Equal(t, metricValue, *savedMetric.Value, "Metric value is not equal to expected")
+	})
+
+	t.Run("JSON get value", func(t *testing.T) {
+		const metricName = "test_json_get_value"
+		metricValue := int64(42)
+
+		metric := model.Metrics{
+			ID:    metricName,
+			MType: model.Counter,
+			Delta: &metricValue,
+		}
+
+		jsonData, err := json.Marshal(metric)
+		require.NoError(t, err, "Failed to marshal metric to JSON")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		queryMetric := model.Metrics{
+			ID:    metricName,
+			MType: model.Counter,
+		}
+
+		queryJsonData, err := json.Marshal(queryMetric)
+		require.NoError(t, err, "Failed to marshal query metric to JSON")
+
+		req2, err := http.NewRequest(http.MethodPost, server.URL+config.ValuePath, bytes.NewBuffer(queryJsonData))
+		require.NoError(t, err, "Failed to create request")
+		req2.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp2, err := http.DefaultClient.Do(req2)
+		require.NoError(t, err, "Failed to send request")
+		defer resp2.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp2.StatusCode, "Expected status 200, got %d", resp2.StatusCode)
+		require.Equal(t, config.ContentTypeJSON, resp2.Header.Get(config.ContentTypeHeader), "Expected JSON content type")
+
+		var responseMetric model.Metrics
+		err = json.NewDecoder(resp2.Body).Decode(&responseMetric)
+		require.NoError(t, err, "Failed to decode response JSON")
+		require.Equal(t, metricName, responseMetric.ID, "Metric ID should match")
+		require.Equal(t, model.Counter, responseMetric.MType, "Metric type should match")
+		require.Equal(t, metricValue, *responseMetric.Delta, "Metric value should match")
+	})
+
+	t.Run("JSON error cases", func(t *testing.T) {
+		testCases := []struct {
+			name           string
+			jsonData       string
+			contentType    string
+			expectedStatus int
+		}{
+			{
+				name:           "invalid JSON",
+				jsonData:       `{"id": "test", "type": "gauge", "value": 1.0`,
+				contentType:    config.ContentTypeJSON,
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "invalid content type",
+				jsonData:       `{"id": "test", "type": "gauge", "value": 1.0}`,
+				contentType:    config.ContentTypeTextPlain,
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "invalid metric type",
+				jsonData:       `{"id": "test", "type": "invalid", "value": 1.0}`,
+				contentType:    config.ContentTypeJSON,
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "missing required fields",
+				jsonData:       `{"id": "test"}`,
+				contentType:    config.ContentTypeJSON,
+				expectedStatus: http.StatusBadRequest,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBufferString(tc.jsonData))
+				require.NoError(t, err, "Failed to create request")
+				req.Header.Set(config.ContentTypeHeader, tc.contentType)
+
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(t, err, "Failed to send request")
+				defer resp.Body.Close()
+
+				require.Equal(t, tc.expectedStatus, resp.StatusCode, "Expected status %d, got %d", tc.expectedStatus, resp.StatusCode)
 			})
 		}
 	})
