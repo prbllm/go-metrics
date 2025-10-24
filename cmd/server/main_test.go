@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -25,6 +26,7 @@ func TestFullIntegration(t *testing.T) {
 	handlers := handler.NewHandlers(metricsService)
 
 	router := chi.NewRouter()
+	router.Use(handler.GzipDecompressMiddleware())
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandlerByUrl)
 		r.Route(config.UpdatePath, func(r chi.Router) {
@@ -380,5 +382,125 @@ func TestFullIntegration(t *testing.T) {
 				require.Equal(t, tc.expectedStatus, resp.StatusCode, "Expected status %d, got %d", tc.expectedStatus, resp.StatusCode)
 			})
 		}
+	})
+
+	t.Run("gzip compression", func(t *testing.T) {
+		testMetrics := []model.Metrics{
+			{ID: "test_gzip_counter_1", MType: model.Counter, Delta: func() *int64 { v := int64(100); return &v }()},
+			{ID: "test_gzip_counter_2", MType: model.Counter, Delta: func() *int64 { v := int64(200); return &v }()},
+			{ID: "test_gzip_gauge_1", MType: model.Gauge, Value: func() *float64 { v := 3.14159; return &v }()},
+			{ID: "test_gzip_gauge_2", MType: model.Gauge, Value: func() *float64 { v := 2.71828; return &v }()},
+		}
+
+		for _, metric := range testMetrics {
+			err := storage.UpdateMetric(&metric)
+			require.NoError(t, err, "Failed to add test metric")
+		}
+
+		t.Run("response compression with gzip", func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, server.URL+"/", nil)
+			require.NoError(t, err, "Failed to create request")
+			req.Header.Set(config.AcceptEncodingHeader, config.ContentEncodingGzip)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err, "Failed to send request")
+			defer resp.Body.Close()
+
+			require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+			require.Equal(t, config.ContentEncodingGzip, resp.Header.Get(config.ContentEncodingHeader), "Expected Content-Encoding: gzip")
+			require.Equal(t, config.AcceptEncodingHeader, resp.Header.Get(config.VaryHeader), "Expected Vary: Accept-Encoding")
+
+			gzReader, err := gzip.NewReader(resp.Body)
+			require.NoError(t, err, "Failed to create gzip reader")
+			defer gzReader.Close()
+
+			decompressedBody, err := io.ReadAll(gzReader)
+			require.NoError(t, err, "Failed to decompress response")
+
+			bodyStr := string(decompressedBody)
+			require.Contains(t, bodyStr, "test_gzip_counter_1: 100", "Expected to find counter 1")
+			require.Contains(t, bodyStr, "test_gzip_counter_2: 200", "Expected to find counter 2")
+			require.Contains(t, bodyStr, "test_gzip_gauge_1: 3.14159", "Expected to find gauge 1")
+			require.Contains(t, bodyStr, "test_gzip_gauge_2: 2.71828", "Expected to find gauge 2")
+		})
+
+		t.Run("no compression without gzip", func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, server.URL+"/", nil)
+			require.NoError(t, err, "Failed to create request")
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err, "Failed to send request")
+			defer resp.Body.Close()
+
+			require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+			require.Empty(t, resp.Header.Get(config.ContentEncodingHeader), "Expected no Content-Encoding header")
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err, "Failed to read response body")
+
+			bodyStr := string(body)
+			require.Contains(t, bodyStr, "test_gzip_counter_1: 100", "Expected to find counter 1")
+			require.Contains(t, bodyStr, "test_gzip_counter_2: 200", "Expected to find counter 2")
+			require.Contains(t, bodyStr, "test_gzip_gauge_1: 3.14159", "Expected to find gauge 1")
+			require.Contains(t, bodyStr, "test_gzip_gauge_2: 2.71828", "Expected to find gauge 2")
+		})
+
+		t.Run("JSON response compression", func(t *testing.T) {
+			metric := model.Metrics{
+				ID:    "test_gzip_json",
+				MType: model.Counter,
+				Delta: func() *int64 { v := int64(42); return &v }(),
+			}
+
+			jsonData, err := json.Marshal(metric)
+			require.NoError(t, err, "Failed to marshal metric to JSON")
+
+			req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(jsonData))
+			require.NoError(t, err, "Failed to create request")
+			req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err, "Failed to send request")
+			resp.Body.Close()
+
+			require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+			queryMetric := model.Metrics{
+				ID:    "test_gzip_json",
+				MType: model.Counter,
+			}
+
+			queryJsonData, err := json.Marshal(queryMetric)
+			require.NoError(t, err, "Failed to marshal query metric to JSON")
+
+			req2, err := http.NewRequest(http.MethodPost, server.URL+config.ValuePath, bytes.NewBuffer(queryJsonData))
+			require.NoError(t, err, "Failed to create request")
+			req2.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+			req2.Header.Set(config.AcceptEncodingHeader, config.ContentEncodingGzip)
+
+			resp2, err := http.DefaultClient.Do(req2)
+			require.NoError(t, err, "Failed to send request")
+			defer resp2.Body.Close()
+
+			require.Equal(t, http.StatusOK, resp2.StatusCode, "Expected status 200, got %d", resp2.StatusCode)
+
+			require.Equal(t, config.ContentEncodingGzip, resp2.Header.Get(config.ContentEncodingHeader), "Expected Content-Encoding: gzip")
+			require.Equal(t, config.AcceptEncodingHeader, resp2.Header.Get(config.VaryHeader), "Expected Vary: Accept-Encoding")
+
+			gzReader, err := gzip.NewReader(resp2.Body)
+			require.NoError(t, err, "Failed to create gzip reader")
+			defer gzReader.Close()
+
+			decompressedBody, err := io.ReadAll(gzReader)
+			require.NoError(t, err, "Failed to decompress response")
+
+			var responseMetric model.Metrics
+			err = json.NewDecoder(bytes.NewReader(decompressedBody)).Decode(&responseMetric)
+			require.NoError(t, err, "Failed to decode response JSON")
+			require.Equal(t, "test_gzip_json", responseMetric.ID, "Expected to find metric name in response")
+			require.Equal(t, int64(42), *responseMetric.Delta, "Expected to find metric value in response")
+		})
 	})
 }

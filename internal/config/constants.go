@@ -49,10 +49,14 @@ const (
 )
 
 const (
-	ContentTypeHeader = "Content-Type"
+	ContentTypeHeader     = "Content-Type"
+	ContentEncodingHeader = "Content-Encoding"
+	AcceptEncodingHeader  = "Accept-Encoding"
+	VaryHeader            = "Vary"
 )
 
 const (
 	ContentTypeJSON      = "application/json"
 	ContentTypeTextPlain = "text/plain"
+	ContentEncodingGzip  = "gzip"
 )

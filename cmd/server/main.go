@@ -33,6 +33,7 @@ func main() {
 	router := chi.NewRouter()
 
 	router.Use(handler.LoggingMiddleware())
+	router.Use(handler.GzipDecompressMiddleware())
 
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandlerByUrl)

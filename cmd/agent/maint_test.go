@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -36,11 +37,16 @@ func TestAgentJSONIntegration(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPost, r.Method, "Expected POST method")
 		require.Equal(t, config.ContentTypeJSON, r.Header.Get(config.ContentTypeHeader), "Expected JSON content type")
+		require.Equal(t, config.ContentEncodingGzip, r.Header.Get(config.ContentEncodingHeader), "Expected gzip content encoding")
 		require.Equal(t, config.UpdatePath, r.URL.Path, "Expected /update path")
 
+		reader, err := gzip.NewReader(r.Body)
+		require.NoError(t, err, "Failed to create gzip reader")
+		defer reader.Close()
+
 		var metric model.Metrics
-		err := json.NewDecoder(r.Body).Decode(&metric)
-		require.NoError(t, err, "Failed to decode JSON metric")
+		err = json.NewDecoder(reader).Decode(&metric)
+		require.NoError(t, err, "Failed to decode gzipped JSON metric")
 
 		require.NotEmpty(t, metric.ID, "Metric ID should not be empty")
 		require.NotEmpty(t, metric.MType, "Metric type should not be empty")

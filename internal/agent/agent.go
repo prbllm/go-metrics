@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -111,6 +112,24 @@ func (a *Agent) generateURL(metric model.Metrics) (string, error) {
 	return fmt.Sprintf("%s%s/%s/%s", url, metric.MType, metric.ID, value), nil
 }
 
+func (a *Agent) compressJSON(jsonData []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+
+	_, err := gzWriter.Write(jsonData)
+	if err != nil {
+		gzWriter.Close()
+		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
+	}
+
+	err = gzWriter.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
 func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
@@ -122,9 +141,25 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 			continue
 		}
 
-		config.GetLogger().Debugf("Sending metric via JSON: %s", metric.String())
+		compressedData, err := a.compressJSON(jsonData)
+		if err != nil {
+			config.GetLogger().Warnf("Error compressing JSON data: %v. Skipping...", err)
+			continue
+		}
 
-		response, err := a.client.Post(a.route, config.ContentTypeJSON, bytes.NewBuffer(jsonData))
+		config.GetLogger().Info("Sending metric via compressed JSON")
+		config.GetLogger().Debugf("Original size: %d bytes, Compressed size: %d bytes", len(jsonData), len(compressedData))
+
+		req, err := http.NewRequest(http.MethodPost, a.route, bytes.NewBuffer(compressedData))
+		if err != nil {
+			config.GetLogger().Errorf("Error creating request: %v. Skipping...", err)
+			continue
+		}
+
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+		response, err := a.client.Do(req)
 		if err != nil {
 			config.GetLogger().Errorf("Error sending metric via JSON: %v. Skipping...", err)
 			continue
