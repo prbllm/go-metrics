@@ -64,13 +64,13 @@ func main() {
 	router.Use(handler.GzipDecompressMiddleware())
 
 	router.Route(config.CommonPath, func(r chi.Router) {
-		r.Get("/", handlers.GetAllMetricsHandlerByUrl)
+		r.Get("/", handlers.GetAllMetricsHandlerByURL)
 		r.Route(config.UpdatePath, func(r chi.Router) {
-			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByUrl)
+			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
 			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
 		r.Route(config.ValuePath, func(r chi.Router) {
-			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByUrl)
+			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByURL)
 			r.Post("/", handlers.GetValueHandlerByJSON)
 		})
 	})
