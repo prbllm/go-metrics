@@ -11,7 +11,7 @@ import (
 )
 
 func cleanupEnvironment() {
-	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar}
+	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar, StoreIntervalEnvVar, FileStoragePathEnvVar, RestoreEnvVar}
 	for _, envVar := range envVars {
 		os.Unsetenv(envVar)
 	}
@@ -26,14 +26,20 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 		{
 			name: "all environment variables set",
 			envVars: map[string]string{
-				AddressEnvVar:        "env-server:9090",
-				ReportIntervalEnvVar: "15",
-				PollIntervalEnvVar:   "5",
+				AddressEnvVar:         "env-server:9090",
+				ReportIntervalEnvVar:  "15",
+				PollIntervalEnvVar:    "5",
+				StoreIntervalEnvVar:   "60",
+				FileStoragePathEnvVar: "/tmp/env-metrics.json",
+				RestoreEnvVar:         "true",
 			},
 			expectedConfig: Config{
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: 15 * time.Second,
 				AgentPollInterval:   5 * time.Second,
+				StoreInterval:       60 * time.Second,
+				FileStoragePath:     "/tmp/env-metrics.json",
+				Restore:             true,
 			},
 		},
 		{
@@ -45,6 +51,9 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: DefaultAgentReportInterval,
 				AgentPollInterval:   DefaultAgentPollInterval,
+				StoreInterval:       DefaultStoreInterval,
+				FileStoragePath:     DefaultFileStoragePath,
+				Restore:             DefaultRestore,
 			},
 		},
 		{
@@ -54,6 +63,9 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				ServerHost:          DefaultServerHost,
 				AgentReportInterval: DefaultAgentReportInterval,
 				AgentPollInterval:   DefaultAgentPollInterval,
+				StoreInterval:       DefaultStoreInterval,
+				FileStoragePath:     DefaultFileStoragePath,
+				Restore:             DefaultRestore,
 			},
 		},
 	}
@@ -72,6 +84,9 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 			assert.Equal(t, tt.expectedConfig.ServerHost, config.ServerHost, "ServerHost is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.AgentReportInterval, config.AgentReportInterval, "AgentReportInterval is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.AgentPollInterval, config.AgentPollInterval, "AgentPollInterval is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.StoreInterval, config.StoreInterval, "StoreInterval is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.FileStoragePath, config.FileStoragePath, "FileStoragePath is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.Restore, config.Restore, "Restore is not equal to expected")
 		})
 	}
 }
@@ -87,26 +102,35 @@ func TestConfigPriority(t *testing.T) {
 		{
 			name: "environment overrides flags",
 			envVars: map[string]string{
-				AddressEnvVar:        "env-server:9090",
-				ReportIntervalEnvVar: "15",
-				PollIntervalEnvVar:   "5",
+				AddressEnvVar:         "env-server:9090",
+				ReportIntervalEnvVar:  "15",
+				PollIntervalEnvVar:    "5",
+				StoreIntervalEnvVar:   "60",
+				FileStoragePathEnvVar: "/tmp/env-metrics.json",
+				RestoreEnvVar:         "true",
 			},
-			flags: []string{"-a", "flag-server:8080", "-r", "20", "-p", "10"},
+			flags: []string{"-a", "flag-server:8080", "-r", "20", "-p", "10", "-i", "30", "-f", "/tmp/flag-metrics.json", "-restore"},
 			expected: Config{
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: 15 * time.Second,
 				AgentPollInterval:   5 * time.Second,
+				StoreInterval:       60 * time.Second,
+				FileStoragePath:     "/tmp/env-metrics.json",
+				Restore:             true,
 			},
 			description: "Environment variables should override command line flags",
 		},
 		{
 			name:    "flags override defaults",
 			envVars: map[string]string{},
-			flags:   []string{"-a", "flag-server:8080", "-r", "20", "-p", "10"},
+			flags:   []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "true"},
 			expected: Config{
 				ServerHost:          "flag-server:8080",
-				AgentReportInterval: 20 * time.Second,
-				AgentPollInterval:   10 * time.Second,
+				AgentReportInterval: DefaultAgentReportInterval,
+				AgentPollInterval:   DefaultAgentPollInterval,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "/tmp/flag-metrics.json",
+				Restore:             true,
 			},
 			description: "Command line flags should override defaults when no env vars",
 		},
@@ -118,21 +142,28 @@ func TestConfigPriority(t *testing.T) {
 				ServerHost:          DefaultServerHost,
 				AgentReportInterval: DefaultAgentReportInterval,
 				AgentPollInterval:   DefaultAgentPollInterval,
+				StoreInterval:       DefaultStoreInterval,
+				FileStoragePath:     DefaultFileStoragePath,
+				Restore:             DefaultRestore,
 			},
 			description: "Default values when no flags or environment variables",
 		},
 		{
 			name: "mixed priority - env for some, flags for others",
 			envVars: map[string]string{
-				AddressEnvVar: "env-server:9090",
+				AddressEnvVar:         "env-server:9090",
+				FileStoragePathEnvVar: "/tmp/env-metrics.json",
 			},
-			flags: []string{"-r", "20", "-p", "10"},
+			flags: []string{"-i", "30", "-r", "true"},
 			expected: Config{
 				ServerHost:          "env-server:9090",
-				AgentReportInterval: 20 * time.Second,
-				AgentPollInterval:   10 * time.Second,
+				AgentReportInterval: DefaultAgentReportInterval,
+				AgentPollInterval:   DefaultAgentPollInterval,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "/tmp/env-metrics.json",
+				Restore:             true,
 			},
-			description: "Mixed priority - environment for address, flags for intervals",
+			description: "Mixed priority - environment for address and file path, flags for intervals and restore",
 		},
 	}
 
@@ -144,7 +175,7 @@ func TestConfigPriority(t *testing.T) {
 				os.Setenv(key, value)
 			}
 
-			config := ParseFlags("test", tt.flags, flag.ContinueOnError)
+			config := ParseFlags(ServerFlagsSet, tt.flags, flag.ContinueOnError)
 
 			config.loadFromEnvironment()
 
@@ -154,6 +185,12 @@ func TestConfigPriority(t *testing.T) {
 				"AgentReportInterval: %s", tt.description)
 			assert.Equal(t, tt.expected.AgentPollInterval, config.AgentPollInterval,
 				"AgentPollInterval: %s", tt.description)
+			assert.Equal(t, tt.expected.StoreInterval, config.StoreInterval,
+				"StoreInterval: %s", tt.description)
+			assert.Equal(t, tt.expected.FileStoragePath, config.FileStoragePath,
+				"FileStoragePath: %s", tt.description)
+			assert.Equal(t, tt.expected.Restore, config.Restore,
+				"Restore: %s", tt.description)
 		})
 	}
 }
@@ -171,6 +208,9 @@ func TestConfigValidation(t *testing.T) {
 				ServerHost:          "localhost:8080",
 				AgentPollInterval:   2 * time.Second,
 				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
 			},
 			expectError: false,
 		},
@@ -180,6 +220,9 @@ func TestConfigValidation(t *testing.T) {
 				ServerHost:          "",
 				AgentPollInterval:   2 * time.Second,
 				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
 			},
 			expectError: true,
 			errorMsg:    "server host cannot be empty",
@@ -190,6 +233,9 @@ func TestConfigValidation(t *testing.T) {
 				ServerHost:          "localhost:8080",
 				AgentPollInterval:   -1 * time.Second,
 				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
 			},
 			expectError: true,
 			errorMsg:    "agent poll interval must be positive",
@@ -200,6 +246,9 @@ func TestConfigValidation(t *testing.T) {
 				ServerHost:          "localhost:8080",
 				AgentPollInterval:   2 * time.Second,
 				AgentReportInterval: -1 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
 			},
 			expectError: true,
 			errorMsg:    "agent report interval must be positive",
@@ -210,9 +259,38 @@ func TestConfigValidation(t *testing.T) {
 				ServerHost:          "localhost:8080",
 				AgentPollInterval:   0,
 				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
 			},
 			expectError: true,
 			errorMsg:    "agent poll interval must be positive",
+		},
+		{
+			name: "negative store interval",
+			config: Config{
+				ServerHost:          "localhost:8080",
+				AgentPollInterval:   2 * time.Second,
+				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       -1 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
+			},
+			expectError: true,
+			errorMsg:    "store interval must be non-negative",
+		},
+		{
+			name: "empty file storage path",
+			config: Config{
+				ServerHost:          "localhost:8080",
+				AgentPollInterval:   2 * time.Second,
+				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "",
+				Restore:             false,
+			},
+			expectError: true,
+			errorMsg:    "file storage path cannot be empty",
 		},
 	}
 
@@ -235,9 +313,12 @@ func TestConfigString(t *testing.T) {
 		ServerHost:          "test-server:8080",
 		AgentPollInterval:   5 * time.Second,
 		AgentReportInterval: 15 * time.Second,
+		StoreInterval:       60 * time.Second,
+		FileStoragePath:     "/tmp/test-metrics.json",
+		Restore:             true,
 	}
 
-	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s}"
+	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true}"
 	actual := config.String()
 
 	assert.Equal(t, expected, actual)

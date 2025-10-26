@@ -9,6 +9,9 @@ const (
 const (
 	DefaultAgentPollInterval   = 2 * time.Second
 	DefaultAgentReportInterval = 10 * time.Second
+	DefaultStoreInterval       = 30 * time.Second
+	DefaultFileStoragePath     = "metrics.json"
+	DefaultRestore             = false
 )
 
 const (
@@ -18,22 +21,35 @@ const (
 )
 
 const (
-	ServerHostFlag     = "a"
-	ReportIntervalFlag = "r"
-	PollIntervalFlag   = "p"
+	AgentFlagsSet  = "agent"
+	ServerFlagsSet = "server"
 )
 
 const (
-	ServerHostDescription     = "Server address (default: localhost:8080)"
-	ReportIntervalDescription = "Agent report interval in seconds (default: 10)"
-	PollIntervalDescription   = "Agent poll interval in seconds (default: 2)"
+	ServerHostFlag              = "a"
+	ReportIntervalOrRestoreFlag = "r"
+	PollIntervalFlag            = "p"
+	StoreIntervalFlag           = "i"
+	FileStoragePathFlag         = "f"
 )
 
 const (
-	AddressEnvVar        = "ADDRESS"
-	ReportIntervalEnvVar = "REPORT_INTERVAL"
-	PollIntervalEnvVar   = "POLL_INTERVAL"
-	LogLevelEnvVar       = "LOG_LEVEL"
+	ServerHostDescription      = "Server address (default: localhost:8080)"
+	ReportIntervalDescription  = "Agent report interval in seconds (default: 10)"
+	PollIntervalDescription    = "Agent poll interval in seconds (default: 2)"
+	StoreIntervalDescription   = "Store interval in seconds (default: 30)"
+	FileStoragePathDescription = "File storage path (default: metrics.json)"
+	RestoreDescription         = "Restore from file storage (true/false, default: false)"
+)
+
+const (
+	AddressEnvVar         = "ADDRESS"
+	ReportIntervalEnvVar  = "REPORT_INTERVAL"
+	PollIntervalEnvVar    = "POLL_INTERVAL"
+	LogLevelEnvVar        = "LOG_LEVEL"
+	StoreIntervalEnvVar   = "STORE_INTERVAL"
+	FileStoragePathEnvVar = "FILE_STORAGE_PATH"
+	RestoreEnvVar         = "RESTORE"
 )
 
 const (

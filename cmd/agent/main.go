@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	err := config.InitConfig("agent")
+	err := config.InitConfig(config.AgentFlagsSet)
 	if err != nil {
 		fmt.Println("Error initializing config: ", err)
 		os.Exit(1)

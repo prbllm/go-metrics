@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	err := config.InitConfig("server")
+	err := config.InitConfig(config.ServerFlagsSet)
 	if err != nil {
 		fmt.Println("Error initializing config: ", err)
 		os.Exit(1)
