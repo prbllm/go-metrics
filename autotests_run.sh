@@ -3,6 +3,7 @@
 # Скрипт для запуска автотестов локально
 # Использование: ./autotests_run <номер_итерации>
 # Пример: ./autotests_run 5
+# Запускает все итерации до указанной (как в CI)
 
 set -e
 
@@ -10,6 +11,7 @@ set -e
 if [ $# -eq 0 ]; then
     echo "Использование: $0 <номер_итерации>"
     echo "Пример: $0 5"
+    echo "Запускает все итерации до указанной (как в CI)"
     exit 1
 fi
 
@@ -21,7 +23,7 @@ if ! [[ "$ITERATION" =~ ^[0-9]+$ ]] || [ "$ITERATION" -lt 1 ] || [ "$ITERATION" 
     exit 1
 fi
 
-echo "🚀 Запуск автотестов для итерации $ITERATION"
+echo "🚀 Запуск автотестов для итераций 1-$ITERATION (как в CI)"
 echo "================================================"
 
 # Собираем бинарники
@@ -62,134 +64,229 @@ get_temp_file() {
     mktemp /tmp/metricstest_XXXXXX
 }
 
-# Запускаем тесты в зависимости от итерации
+# Запускаем тесты точно как в CI
 echo "🧪 Запуск тестов..."
 echo ""
 
-# Итерация 1
+# Code increment #1
 if [ "$ITERATION" -ge 1 ]; then
-    echo "📋 Тест итерации 1..."
+    echo "📋 Code increment #1..."
     ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration1$ \
         -binary-path=cmd/server/server
-    echo "✅ Итерация 1 завершена"
+    echo "✅ Code increment #1 завершен"
     echo ""
 fi
 
-# Итерация 2
+# Code increment #2
 if [ "$ITERATION" -ge 2 ]; then
-    echo "📋 Тест итерации 2..."
+    echo "📋 Code increment #2..."
     ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration2[AB]*$ \
         -source-path=. \
         -agent-binary-path=cmd/agent/agent
-    echo "✅ Итерация 2 завершена"
+    echo "✅ Code increment #2 завершен"
     echo ""
 fi
 
-# Итерация 3
+# Code increment #3
 if [ "$ITERATION" -ge 3 ]; then
-    echo "📋 Тест итерации 3..."
+    echo "📋 Code increment #3..."
     ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration3[AB]*$ \
         -source-path=. \
         -agent-binary-path=cmd/agent/agent \
         -binary-path=cmd/server/server
-    echo "✅ Итерация 3 завершена"
+    echo "✅ Code increment #3 завершен"
     echo ""
 fi
 
-# Итерации 4-9 (с портом)
+# Code increment #4
 if [ "$ITERATION" -ge 4 ]; then
-    for i in $(seq 4 $((ITERATION < 10 ? ITERATION : 9))); do
-        echo "📋 Тест итерации $i..."
-        SERVER_PORT=$(get_random_port)
-        ADDRESS="localhost:${SERVER_PORT}"
-        TEMP_FILE=$(get_temp_file)
-        
-        ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration${i}$ \
-            -agent-binary-path=cmd/agent/agent \
-            -binary-path=cmd/server/server \
-            -server-port=$SERVER_PORT \
-            -source-path=.
-        
-        # Удаляем временный файл
-        rm -f "$TEMP_FILE"
-        echo "✅ Итерация $i завершена"
-        echo ""
-    done
-fi
-
-# Итерация 9 (с файловым хранилищем)
-if [ "$ITERATION" -ge 9 ]; then
-    echo "📋 Тест итерации 9 (с файловым хранилищем)..."
+    echo "📋 Code increment #4..."
     SERVER_PORT=$(get_random_port)
     ADDRESS="localhost:${SERVER_PORT}"
     TEMP_FILE=$(get_temp_file)
-    
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration4$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #4 завершен"
+    echo ""
+fi
+
+# Code increment #5
+if [ "$ITERATION" -ge 5 ]; then
+    echo "📋 Code increment #5..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration5$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #5 завершен"
+    echo ""
+fi
+
+# Code increment #6
+if [ "$ITERATION" -ge 6 ]; then
+    echo "📋 Code increment #6..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration6$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #6 завершен"
+    echo ""
+fi
+
+# Code increment #7
+if [ "$ITERATION" -ge 7 ]; then
+    echo "📋 Code increment #7..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration7$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #7 завершен"
+    echo ""
+fi
+
+# Code increment #8
+if [ "$ITERATION" -ge 8 ]; then
+    echo "📋 Code increment #8..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration8$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #8 завершен"
+    echo ""
+fi
+
+# Code increment #9
+if [ "$ITERATION" -ge 9 ]; then
+    echo "📋 Code increment #9..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
     ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration9$ \
         -agent-binary-path=cmd/agent/agent \
         -binary-path=cmd/server/server \
         -file-storage-path=$TEMP_FILE \
         -server-port=$SERVER_PORT \
         -source-path=.
-    
     rm -f "$TEMP_FILE"
-    echo "✅ Итерация 9 завершена"
+    echo "✅ Code increment #9 завершен"
     echo ""
 fi
 
-# Итерации 10-14 (с базой данных)
+# Code increment #10
 if [ "$ITERATION" -ge 10 ]; then
-    echo "⚠️  Внимание: Итерации 10-14 требуют PostgreSQL"
-    echo "Убедитесь, что PostgreSQL запущен и доступен по адресу localhost:5432"
-    echo "База данных: praktikum, пользователь: postgres, пароль: postgres"
+    echo "📋 Code increment #10..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration10[AB]$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #10 завершен"
     echo ""
-    
-    for i in $(seq 10 $ITERATION); do
-        echo "📋 Тест итерации $i (с базой данных)..."
-        SERVER_PORT=$(get_random_port)
-        ADDRESS="localhost:${SERVER_PORT}"
-        TEMP_FILE=$(get_temp_file)
-        
-        # Специальная обработка для итерации 10
-        if [ "$i" -eq 10 ]; then
-            ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration10[AB]$ \
-                -agent-binary-path=cmd/agent/agent \
-                -binary-path=cmd/server/server \
-                -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
-                -server-port=$SERVER_PORT \
-                -source-path=.
-        else
-            ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration${i}$ \
-                -agent-binary-path=cmd/agent/agent \
-                -binary-path=cmd/server/server \
-                -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
-                -server-port=$SERVER_PORT \
-                -source-path=.
-        fi
-        
-        # Специальная обработка для итерации 14 (с ключом)
-        if [ "$i" -eq 14 ]; then
-            echo "📋 Тест итерации 14 (с ключом)..."
-            ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration14$ \
-                -agent-binary-path=cmd/agent/agent \
-                -binary-path=cmd/server/server \
-                -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
-                -key="${TEMP_FILE}" \
-                -server-port=$SERVER_PORT \
-                -source-path=.
-        fi
-        
-        rm -f "$TEMP_FILE"
-        echo "✅ Итерация $i завершена"
-        echo ""
-    done
 fi
 
-# Race detection для итерации 14
+# Code increment #11
+if [ "$ITERATION" -ge 11 ]; then
+    echo "📋 Code increment #11..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration11$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #11 завершен"
+    echo ""
+fi
+
+# Code increment #12
+if [ "$ITERATION" -ge 12 ]; then
+    echo "📋 Code increment #12..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration12$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #12 завершен"
+    echo ""
+fi
+
+# Code increment #13
+if [ "$ITERATION" -ge 13 ]; then
+    echo "📋 Code increment #13..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration13$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #13 завершен"
+    echo ""
+fi
+
+# Code increment #14
 if [ "$ITERATION" -ge 14 ]; then
-    echo "📋 Тест race detection для итерации 14..."
-    go test -v -race ./...
-    echo "✅ Race detection завершен"
+    echo "📋 Code increment #14..."
+    SERVER_PORT=$(get_random_port)
+    ADDRESS="localhost:${SERVER_PORT}"
+    TEMP_FILE=$(get_temp_file)
+    ./metricstest_v2-darwin-amd64 -test.v -test.run=^TestIteration14$ \
+        -agent-binary-path=cmd/agent/agent \
+        -binary-path=cmd/server/server \
+        -database-dsn='postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' \
+        -key="${TEMP_FILE}" \
+        -server-port=$SERVER_PORT \
+        -source-path=.
+    rm -f "$TEMP_FILE"
+    echo "✅ Code increment #14 завершен"
     echo ""
 fi
 
-echo "🎉 Все тесты для итерации $ITERATION завершены успешно!"
+# Code increment #14 (race detection)
+if [ "$ITERATION" -ge 14 ]; then
+    echo "📋 Code increment #14 (race detection)..."
+    go test -v -race ./...
+    echo "✅ Code increment #14 (race detection) завершен"
+    echo ""
+fi
+
+echo "🎉 Все тесты для итераций 1-$ITERATION завершены успешно!"

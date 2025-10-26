@@ -3,12 +3,15 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
@@ -20,7 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestFullIntegration(t *testing.T) {
+func TestHTTPAPIIntegration(t *testing.T) {
 	storage := repository.NewMemStorage()
 	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService)
@@ -502,5 +505,232 @@ func TestFullIntegration(t *testing.T) {
 			require.Equal(t, "test_gzip_json", responseMetric.ID, "Expected to find metric name in response")
 			require.Equal(t, int64(42), *responseMetric.Delta, "Expected to find metric value in response")
 		})
+	})
+}
+
+type FileStorageTestHelper struct {
+	t         *testing.T
+	tempFile  *os.File
+	storage   *repository.MemStorage
+	decorator *repository.FileStorageDecorator
+}
+
+func NewFileStorageTestHelper(t *testing.T, pattern string) *FileStorageTestHelper {
+	tempFile, err := os.CreateTemp("", pattern)
+	require.NoError(t, err, "Failed to create temp file")
+
+	storage := repository.NewMemStorage()
+	decorator := repository.NewFileStorageDecorator(storage, tempFile.Name())
+
+	return &FileStorageTestHelper{
+		t:         t,
+		tempFile:  tempFile,
+		storage:   storage,
+		decorator: decorator,
+	}
+}
+
+func (h *FileStorageTestHelper) Close() {
+	h.tempFile.Close()
+	os.Remove(h.tempFile.Name())
+}
+
+func (h *FileStorageTestHelper) GetFilePath() string {
+	return h.tempFile.Name()
+}
+
+func (h *FileStorageTestHelper) GetDecorator() *repository.FileStorageDecorator {
+	return h.decorator
+}
+
+func (h *FileStorageTestHelper) GetStorage() *repository.MemStorage {
+	return h.storage
+}
+
+func (h *FileStorageTestHelper) AddMetric(metric *model.Metrics) {
+	err := h.decorator.UpdateMetric(metric)
+	require.NoError(h.t, err, "Failed to update metric")
+}
+
+func (h *FileStorageTestHelper) SaveToFile() {
+	err := h.decorator.SaveToFile()
+	require.NoError(h.t, err, "Failed to save to file")
+}
+
+func (h *FileStorageTestHelper) LoadFromFile() {
+	err := h.decorator.LoadFromFile()
+	require.NoError(h.t, err, "Failed to load from file")
+}
+
+func (h *FileStorageTestHelper) AssertFileExists() []byte {
+	fileContent, err := os.ReadFile(h.tempFile.Name())
+	require.NoError(h.t, err, "Failed to read file")
+	require.NotEmpty(h.t, fileContent, "File should not be empty")
+	return fileContent
+}
+
+func (h *FileStorageTestHelper) AssertJSONFormat(fileContent []byte) []*model.Metrics {
+	var savedMetrics []*model.Metrics
+	err := json.Unmarshal(fileContent, &savedMetrics)
+	require.NoError(h.t, err, "Failed to unmarshal JSON")
+	return savedMetrics
+}
+
+func (h *FileStorageTestHelper) AssertMetricExists(metricType, metricID string, expectedValue interface{}) {
+	metric, err := h.storage.GetMetric(&model.Metrics{MType: metricType, ID: metricID})
+	require.NoError(h.t, err, "Failed to get metric")
+
+	switch metricType {
+	case model.Counter:
+		expectedDelta := expectedValue.(int64)
+		require.Equal(h.t, expectedDelta, *metric.Delta, "Counter delta should match")
+	case model.Gauge:
+		expectedVal := expectedValue.(float64)
+		require.Equal(h.t, expectedVal, *metric.Value, "Gauge value should match")
+	}
+}
+
+func (h *FileStorageTestHelper) CreateTestFileWithData(testMetrics []*model.Metrics) {
+	jsonData, err := json.Marshal(testMetrics)
+	require.NoError(h.t, err, "Failed to marshal test metrics")
+	err = os.WriteFile(h.tempFile.Name(), jsonData, 0644)
+	require.NoError(h.t, err, "Failed to write test file")
+}
+
+func TestFileStorageIntegration(t *testing.T) {
+
+	t.Run("integration_multiple_metrics_save_load", func(t *testing.T) {
+		helper := NewFileStorageTestHelper(t, "test_multiple_*.json")
+		defer helper.Close()
+
+		metrics := []*model.Metrics{
+			{ID: "counter1", MType: model.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
+			{ID: "counter2", MType: model.Counter, Delta: func() *int64 { v := int64(20); return &v }()},
+			{ID: "gauge1", MType: model.Gauge, Value: func() *float64 { v := 1.5; return &v }()},
+			{ID: "gauge2", MType: model.Gauge, Value: func() *float64 { v := 2.5; return &v }()},
+		}
+
+		for _, metric := range metrics {
+			helper.AddMetric(metric)
+		}
+
+		helper.SaveToFile()
+
+		newHelper := NewFileStorageTestHelper(t, "test_multiple_load_*.json")
+		defer newHelper.Close()
+
+		fileContent := helper.AssertFileExists()
+		err := os.WriteFile(newHelper.GetFilePath(), fileContent, 0644)
+		require.NoError(t, err, "Failed to copy file")
+
+		newHelper.LoadFromFile()
+
+		allMetrics := newHelper.GetStorage().GetAllMetrics()
+		require.Len(t, allMetrics, 4, "Should have 4 metrics")
+
+		newHelper.AssertMetricExists(model.Counter, "counter1", int64(10))
+		newHelper.AssertMetricExists(model.Gauge, "gauge2", 2.5)
+	})
+
+	t.Run("integration_error_handling", func(t *testing.T) {
+		storage := repository.NewMemStorage()
+		fileDecorator := repository.NewFileStorageDecorator(storage, "/invalid/path/that/does/not/exist/metrics.json")
+
+		metric := &model.Metrics{
+			ID:    "test_error",
+			MType: model.Counter,
+			Delta: func() *int64 { v := int64(1); return &v }(),
+		}
+
+		err := fileDecorator.UpdateMetric(metric)
+		require.NoError(t, err, "UpdateMetric should succeed even if file save fails")
+
+		err = fileDecorator.SaveToFile()
+		require.Error(t, err, "SaveToFile should fail with invalid path")
+	})
+
+	t.Run("integration_config_sync_behavior", func(t *testing.T) {
+		originalConfig := config.GetConfig()
+
+		testConfig := &config.Config{
+			ServerHost:          "localhost:8080",
+			AgentPollInterval:   2 * time.Second,
+			AgentReportInterval: 10 * time.Second,
+			StoreInterval:       0,
+			FileStoragePath:     "test_sync.json",
+			Restore:             false,
+		}
+
+		config.SetConfig(testConfig)
+
+		defer config.SetConfig(originalConfig)
+
+		helper := NewFileStorageTestHelper(t, "test_config_sync_*.json")
+		defer helper.Close()
+
+		metric := &model.Metrics{
+			ID:    "test_config_sync_counter",
+			MType: model.Counter,
+			Delta: func() *int64 { v := int64(300); return &v }(),
+		}
+
+		helper.AddMetric(metric)
+
+		fileContent := helper.AssertFileExists()
+		savedMetrics := helper.AssertJSONFormat(fileContent)
+		require.Len(t, savedMetrics, 1, "Should have one metric for sync save")
+		require.Equal(t, "test_config_sync_counter", savedMetrics[0].ID)
+		require.Equal(t, int64(300), *savedMetrics[0].Delta)
+
+		allMetrics := helper.GetStorage().GetAllMetrics()
+		require.Len(t, allMetrics, 1, "Should have one metric in memory")
+		require.Equal(t, "test_config_sync_counter", allMetrics[0].ID)
+	})
+
+	t.Run("integration_config_async_behavior", func(t *testing.T) {
+		originalConfig := config.GetConfig()
+
+		testConfig := &config.Config{
+			ServerHost:          "localhost:8080",
+			AgentPollInterval:   2 * time.Second,
+			AgentReportInterval: 10 * time.Second,
+			StoreInterval:       1 * time.Second,
+			FileStoragePath:     "test_async.json",
+			Restore:             false,
+		}
+
+		config.SetConfig(testConfig)
+
+		defer config.SetConfig(originalConfig)
+
+		helper := NewFileStorageTestHelper(t, "test_config_async_*.json")
+		defer helper.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		helper.GetDecorator().StartPeriodicSave(ctx)
+
+		metric := &model.Metrics{
+			ID:    "test_config_async_counter",
+			MType: model.Counter,
+			Delta: func() *int64 { v := int64(400); return &v }(),
+		}
+
+		helper.AddMetric(metric)
+
+		allMetrics := helper.GetStorage().GetAllMetrics()
+		require.Len(t, allMetrics, 1, "Should have one metric in memory")
+
+		time.Sleep(1500 * time.Millisecond)
+
+		fileContent, err := os.ReadFile(helper.GetFilePath())
+		require.NoError(t, err, "Failed to read file")
+		require.NotEmpty(t, fileContent, "File should not be empty for async behavior")
+
+		savedMetrics := helper.AssertJSONFormat(fileContent)
+		require.Len(t, savedMetrics, 1, "Should have one metric in file")
+		require.Equal(t, "test_config_async_counter", savedMetrics[0].ID)
+		require.Equal(t, int64(400), *savedMetrics[0].Delta)
 	})
 }

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
@@ -27,8 +31,32 @@ func main() {
 	}
 	defer config.GetLogger().Sync()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		config.GetLogger().Info("Received shutdown signal")
+		cancel()
+	}()
+
 	storage := repository.NewMemStorage()
-	metricsService := service.NewMetricsService(storage)
+	fileDecorator := repository.NewFileStorageDecorator(storage, config.GetConfig().FileStoragePath)
+
+	if config.GetConfig().Restore {
+		err = fileDecorator.LoadFromFile()
+		if err != nil {
+			config.GetLogger().Errorf("Error loading file: %v", err)
+		} else {
+			config.GetLogger().Info("Metrics loaded from file")
+		}
+	}
+
+	fileDecorator.StartPeriodicSave(ctx)
+
+	metricsService := service.NewMetricsService(fileDecorator)
 	handlers := handler.NewHandlers(metricsService)
 	router := chi.NewRouter()
 
@@ -47,9 +75,27 @@ func main() {
 		})
 	})
 
-	config.GetLogger().Infof("Server starting on %s", config.GetConfig().ServerHost)
-	err = http.ListenAndServe(config.GetConfig().ServerHost, router)
-	if err != nil {
-		config.GetLogger().Fatalf("Error starting server: %v", err)
+	server := &http.Server{
+		Addr:    config.GetConfig().ServerHost,
+		Handler: router,
+	}
+
+	go func() {
+		config.GetLogger().Infof("Server starting on %s", config.GetConfig().ServerHost)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			config.GetLogger().Fatalf("Error starting server: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	config.GetLogger().Info("Shutting down server...")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		config.GetLogger().Errorf("Server forced to shutdown: %v", err)
+	} else {
+		config.GetLogger().Info("Server exited gracefully")
 	}
 }
