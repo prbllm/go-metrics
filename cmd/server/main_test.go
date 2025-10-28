@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
 	"github.com/prbllm/go-metrics/internal/model"
@@ -414,11 +414,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 			require.Equal(t, config.ContentEncodingGzip, resp.Header.Get(config.ContentEncodingHeader), "Expected Content-Encoding: gzip")
 			require.Equal(t, config.AcceptEncodingHeader, resp.Header.Get(config.VaryHeader), "Expected Vary: Accept-Encoding")
 
-			gzReader, err := gzip.NewReader(resp.Body)
-			require.NoError(t, err, "Failed to create gzip reader")
-			defer gzReader.Close()
-
-			decompressedBody, err := io.ReadAll(gzReader)
+			decompressedBody, err := compression.DecompressReader(resp.Body)
 			require.NoError(t, err, "Failed to decompress response")
 
 			bodyStr := string(decompressedBody)
@@ -492,11 +488,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 			require.Equal(t, config.ContentEncodingGzip, resp2.Header.Get(config.ContentEncodingHeader), "Expected Content-Encoding: gzip")
 			require.Equal(t, config.AcceptEncodingHeader, resp2.Header.Get(config.VaryHeader), "Expected Vary: Accept-Encoding")
 
-			gzReader, err := gzip.NewReader(resp2.Body)
-			require.NoError(t, err, "Failed to create gzip reader")
-			defer gzReader.Close()
-
-			decompressedBody, err := io.ReadAll(gzReader)
+			decompressedBody, err := compression.DecompressReader(resp2.Body)
 			require.NoError(t, err, "Failed to decompress response")
 
 			var responseMetric model.Metrics

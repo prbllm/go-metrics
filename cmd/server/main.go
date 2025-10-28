@@ -31,16 +31,8 @@ func main() {
 	}
 	defer config.GetLogger().Sync()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		config.GetLogger().Info("Received shutdown signal")
-		cancel()
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	storage := repository.NewMemStorage()
 	fileDecorator := repository.NewFileStorageDecorator(storage, config.GetConfig().FileStoragePath)
@@ -80,15 +72,21 @@ func main() {
 		Handler: router,
 	}
 
+	serverErr := make(chan error, 1)
+
 	go func() {
 		config.GetLogger().Infof("Server starting on %s", config.GetConfig().ServerHost)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			config.GetLogger().Fatalf("Error starting server: %v", err)
+			serverErr <- err
 		}
 	}()
 
-	<-ctx.Done()
-	config.GetLogger().Info("Shutting down server...")
+	select {
+	case <-ctx.Done():
+		config.GetLogger().Info("Received shutdown signal, shutting down server...")
+	case err := <-serverErr:
+		config.GetLogger().Errorf("Server error: %v", err, "Shutting down server due to error...")
+	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()

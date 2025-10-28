@@ -5,27 +5,12 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 )
-
-func supportsGzip(acceptEncoding string) bool {
-	if acceptEncoding == "" {
-		return false
-	}
-
-	encodings := strings.Split(acceptEncoding, ",")
-	for _, encoding := range encodings {
-		encoding = strings.TrimSpace(encoding)
-		if encoding == "gzip" {
-			return true
-		}
-	}
-	return false
-}
 
 func LoggingMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -55,17 +40,8 @@ func GzipDecompressMiddleware() func(http.Handler) http.Handler {
 			if r.Header.Get(config.ContentEncodingHeader) == config.ContentEncodingGzip {
 				config.GetLogger().Debug("Decompressing gzip request body")
 
-				gzReader, err := gzip.NewReader(r.Body)
+				decompressedBody, err := compression.DecompressReader(r.Body)
 				if err != nil {
-					config.GetLogger().Errorf("Failed to create gzip reader: %v", err)
-					http.Error(w, "Invalid gzip data", http.StatusBadRequest)
-					return
-				}
-				defer gzReader.Close()
-
-				decompressedBody, err := io.ReadAll(gzReader)
-				if err != nil {
-					config.GetLogger().Errorf("Failed to decompress gzip data: %v", err)
 					http.Error(w, "Invalid gzip data", http.StatusBadRequest)
 					return
 				}
@@ -78,7 +54,7 @@ func GzipDecompressMiddleware() func(http.Handler) http.Handler {
 				config.GetLogger().Debugf("Successfully decompressed %d bytes", len(decompressedBody))
 			}
 
-			if supportsGzip(r.Header.Get(config.AcceptEncodingHeader)) {
+			if compression.SupportsGzip(r.Header.Get(config.AcceptEncodingHeader)) {
 				gzWriter := gzip.NewWriter(w)
 				defer gzWriter.Close()
 

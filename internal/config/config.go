@@ -86,44 +86,55 @@ func (c *Config) loadFromEnvironment(flagsetName string) {
 		c.ServerHost = address
 	}
 
-	if flagsetName == AgentFlagsSet {
-		reportInterval, err := GetEnvironmentInt(ReportIntervalEnvVar)
-		if err != nil {
-			GetLogger().Warnf("failed to get report interval from environment: %v", err)
-		} else {
-			c.AgentReportInterval = time.Duration(reportInterval) * time.Second
-		}
+	switch flagsetName {
+	case AgentFlagsSet:
+		c.loadAgentEnvironmets()
+	case ServerFlagsSet:
+		c.loadServerEnvironmets()
+	default:
+		GetLogger().Errorf("invalid flagset name: %s", flagsetName)
+	}
+}
 
-		pollInterval, err := GetEnvironmentInt(PollIntervalEnvVar)
-		if err != nil {
-			GetLogger().Warnf("failed to get poll interval from environment: %v", err)
-		} else {
-			c.AgentPollInterval = time.Duration(pollInterval) * time.Second
-		}
-	} else if flagsetName == ServerFlagsSet {
-		storeInterval, err := GetEnvironmentInt(StoreIntervalEnvVar)
-		if err != nil {
-			GetLogger().Warnf("failed to get store interval from environment: %v", err)
-		} else {
-			c.StoreInterval = time.Duration(storeInterval) * time.Second
-		}
+func (c *Config) loadAgentEnvironmets() {
+	reportInterval, err := GetEnvironmentInt(ReportIntervalEnvVar)
+	if err != nil {
+		GetLogger().Warnf("failed to get report interval from environment: %v", err)
+	} else {
+		c.AgentReportInterval = time.Duration(reportInterval) * time.Second
+	}
 
-		fileStoragePath, err := GetEnvironment(FileStoragePathEnvVar)
-		if err != nil {
-			GetLogger().Warnf("failed to get file storage path from environment: %v", err)
-		} else {
-			c.FileStoragePath = fileStoragePath
-		}
+	pollInterval, err := GetEnvironmentInt(PollIntervalEnvVar)
+	if err != nil {
+		GetLogger().Warnf("failed to get poll interval from environment: %v", err)
+	} else {
+		c.AgentPollInterval = time.Duration(pollInterval) * time.Second
+	}
+}
 
-		restore, err := GetEnvironment(RestoreEnvVar)
-		if err != nil {
-			GetLogger().Warnf("failed to get restore from environment: %v", err)
+func (c *Config) loadServerEnvironmets() {
+	storeInterval, err := GetEnvironmentInt(StoreIntervalEnvVar)
+	if err != nil {
+		GetLogger().Warnf("failed to get store interval from environment: %v", err)
+	} else {
+		c.StoreInterval = time.Duration(storeInterval) * time.Second
+	}
+
+	fileStoragePath, err := GetEnvironment(FileStoragePathEnvVar)
+	if err != nil {
+		GetLogger().Warnf("failed to get file storage path from environment: %v", err)
+	} else {
+		c.FileStoragePath = fileStoragePath
+	}
+
+	restore, err := GetEnvironment(RestoreEnvVar)
+	if err != nil {
+		GetLogger().Warnf("failed to get restore from environment: %v", err)
+	} else {
+		if restore == "true" {
+			c.Restore = true
 		} else {
-			if restore == "true" {
-				c.Restore = true
-			} else {
-				c.Restore = false
-			}
+			c.Restore = false
 		}
 	}
 }

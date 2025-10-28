@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
@@ -65,13 +65,8 @@ func TestGzipDecompressMiddleware(t *testing.T) {
 	jsonData, err := json.Marshal(metric)
 	require.NoError(t, err, "Failed to marshal metric to JSON")
 
-	var buf bytes.Buffer
-	gzWriter := gzip.NewWriter(&buf)
-	_, err = gzWriter.Write(jsonData)
-	require.NoError(t, err, "Failed to write to gzip writer")
-	err = gzWriter.Close()
-	require.NoError(t, err, "Failed to close gzip writer")
-	compressedData := buf.Bytes()
+	compressedData, err := compression.CompressData(jsonData)
+	require.NoError(t, err, "Failed to compress data")
 
 	router := chi.NewRouter()
 	router.Use(GzipDecompressMiddleware())
@@ -119,7 +114,7 @@ func TestSupportsGzip(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := supportsGzip(tc.acceptEncoding)
+			result := compression.SupportsGzip(tc.acceptEncoding)
 			require.Equal(t, tc.expected, result,
 				"supportsGzip(%q) should return %v", tc.acceptEncoding, tc.expected)
 		})

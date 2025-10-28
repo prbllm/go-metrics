@@ -23,7 +23,7 @@ func NewFileStorageDecorator(memStorage *MemStorage, filePath string) *FileStora
 func (f *FileStorageDecorator) UpdateMetric(metric *model.Metrics) error {
 	err := f.memStorage.UpdateMetric(metric)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update metric: %w", err)
 	}
 
 	if config.GetConfig().StoreInterval == 0 {

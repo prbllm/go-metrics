@@ -2,7 +2,6 @@ package agent
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/model"
 )
@@ -113,21 +113,7 @@ func (a *Agent) generateURL(metric model.Metrics) (string, error) {
 }
 
 func (a *Agent) compressJSON(jsonData []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	gzWriter := gzip.NewWriter(&buf)
-
-	_, err := gzWriter.Write(jsonData)
-	if err != nil {
-		gzWriter.Close()
-		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
-	}
-
-	err = gzWriter.Close()
-	if err != nil {
-		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	return buf.Bytes(), nil
+	return compression.CompressData(jsonData)
 }
 
 func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
@@ -147,8 +133,10 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 			continue
 		}
 
+		stats := compression.GetCompressionStats(jsonData, compressedData)
 		config.GetLogger().Info("Sending metric via compressed JSON")
-		config.GetLogger().Debugf("Original size: %d bytes, Compressed size: %d bytes", len(jsonData), len(compressedData))
+		config.GetLogger().Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
+			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 		req, err := http.NewRequest(http.MethodPost, a.route, bytes.NewBuffer(compressedData))
 		if err != nil {

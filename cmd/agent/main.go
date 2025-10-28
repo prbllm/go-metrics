@@ -19,8 +19,7 @@ func main() {
 
 	err = config.InitLogger()
 	if err != nil {
-		fmt.Println("Error initializing logger: ", err)
-		os.Exit(1)
+		config.GetLogger().Fatalf("Error initializing logger: ", err)
 	}
 	defer config.GetLogger().Sync()
 

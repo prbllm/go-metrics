@@ -7,9 +7,12 @@ import (
 )
 
 func GetEnvironment(key string) (string, error) {
-	value := os.Getenv(key)
-	if value == "" {
+	value, exists := os.LookupEnv(key)
+	if !exists {
 		return "", fmt.Errorf("environment variable %s is not set", key)
+	}
+	if value == "" {
+		return "", fmt.Errorf("environment variable %s is set but empty", key)
 	}
 	return value, nil
 }

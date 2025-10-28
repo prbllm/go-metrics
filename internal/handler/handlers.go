@@ -37,13 +37,11 @@ func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := service.ValidateMetricType(metricType); err != nil {
-		config.GetLogger().Errorf("Invalid metric type: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
 		http.Error(w, "Invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	if err := service.ValidateMetricValue(metricType, metricValue); err != nil {
-		config.GetLogger().Errorf("Invalid metric value: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
 		http.Error(w, "Invalid metric value", http.StatusBadRequest)
 		return
 	}
@@ -72,20 +70,17 @@ func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Requ
 	}
 
 	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
-		config.GetLogger().Errorf("Invalid content type: %s", contentType)
 		http.Error(w, "Invalid content type", http.StatusBadRequest)
 		return
 	}
 
 	var metric model.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-		config.GetLogger().Errorf("Error decoding JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
 	if err := service.ValidateMetric(&metric); err != nil {
-		config.GetLogger().Errorf("Invalid metric: %v", err)
 		http.Error(w, "Invalid metric", http.StatusBadRequest)
 		return
 	}
@@ -191,20 +186,17 @@ func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request)
 	}
 
 	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
-		config.GetLogger().Errorf("Invalid content type: %s", contentType)
 		http.Error(w, "Invalid content type", http.StatusBadRequest)
 		return
 	}
 
 	var metric model.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-		config.GetLogger().Errorf("Error decoding JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
 	if err := service.ValidateMetricType(metric.MType); err != nil {
-		config.GetLogger().Errorf("Invalid metric type: %v", err)
 		http.Error(w, "Invalid metric type", http.StatusBadRequest)
 		return
 	}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"compress/gzip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prbllm/go-metrics/internal/agent"
+	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
@@ -40,12 +41,11 @@ func TestAgentJSONIntegration(t *testing.T) {
 		require.Equal(t, config.ContentEncodingGzip, r.Header.Get(config.ContentEncodingHeader), "Expected gzip content encoding")
 		require.Equal(t, config.UpdatePath, r.URL.Path, "Expected /update path")
 
-		reader, err := gzip.NewReader(r.Body)
-		require.NoError(t, err, "Failed to create gzip reader")
-		defer reader.Close()
+		decompressedBody, err := compression.DecompressReader(r.Body)
+		require.NoError(t, err, "Failed to decompress gzip data")
 
 		var metric model.Metrics
-		err = json.NewDecoder(reader).Decode(&metric)
+		err = json.NewDecoder(bytes.NewReader(decompressedBody)).Decode(&metric)
 		require.NoError(t, err, "Failed to decode gzipped JSON metric")
 
 		require.NotEmpty(t, metric.ID, "Metric ID should not be empty")
