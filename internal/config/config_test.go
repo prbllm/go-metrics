@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,8 +80,9 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 			}
 
 			config := defaultConfig()
-			config.loadFromEnvironment(ServerFlagsSet)
-			config.loadFromEnvironment(AgentFlagsSet)
+			logger := logger.NewMockLogger()
+			config.loadFromEnvironment(ServerFlagsSet, logger)
+			config.loadFromEnvironment(AgentFlagsSet, logger)
 
 			assert.Equal(t, tt.expectedConfig.ServerHost, config.ServerHost, "ServerHost is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.AgentReportInterval, config.AgentReportInterval, "AgentReportInterval is not equal to expected")
@@ -173,9 +175,10 @@ func TestConfigPriorityAgent(t *testing.T) {
 				os.Setenv(key, value)
 			}
 
-			config := ParseFlags(AgentFlagsSet, tt.flags, flag.ContinueOnError)
+			logger := logger.NewMockLogger()
+			config := ParseFlags(AgentFlagsSet, tt.flags, flag.ContinueOnError, logger)
 
-			config.loadFromEnvironment(AgentFlagsSet)
+			config.loadFromEnvironment(AgentFlagsSet, logger)
 
 			assert.Equal(t, tt.expected.ServerHost, config.ServerHost,
 				"ServerHost: %s", tt.description)
@@ -282,10 +285,10 @@ func TestConfigPriorityServer(t *testing.T) {
 			for key, value := range tt.envVars {
 				os.Setenv(key, value)
 			}
+			logger := logger.NewMockLogger()
+			config := ParseFlags(ServerFlagsSet, tt.flags, flag.ContinueOnError, logger)
 
-			config := ParseFlags(ServerFlagsSet, tt.flags, flag.ContinueOnError)
-
-			config.loadFromEnvironment(ServerFlagsSet)
+			config.loadFromEnvironment(ServerFlagsSet, logger)
 
 			assert.Equal(t, tt.expected.ServerHost, config.ServerHost,
 				"ServerHost: %s", tt.description)

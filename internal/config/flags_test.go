@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +40,7 @@ func TestParseAgentFlags(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ParseFlags(AgentFlagsSet, tc.args, flag.ContinueOnError)
+			got := ParseFlags(AgentFlagsSet, tc.args, flag.ContinueOnError, logger.NewMockLogger())
 			expected := tc.expected()
 			require.Equal(t, expected.ServerHost, got.ServerHost, "ServerHost is not equal to expected")
 			require.Equal(t, expected.AgentPollInterval, got.AgentPollInterval, "AgentPollInterval is not equal to expected")
@@ -122,7 +123,7 @@ func TestParseServerFlags(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ParseFlags(ServerFlagsSet, tc.args, flag.ContinueOnError)
+			got := ParseFlags(ServerFlagsSet, tc.args, flag.ContinueOnError, logger.NewMockLogger())
 			expected := tc.expected()
 			require.Equal(t, expected.ServerHost, got.ServerHost, "ServerHost is not equal to expected")
 			require.Equal(t, expected.StoreInterval, got.StoreInterval, "StoreInterval is not equal to expected")

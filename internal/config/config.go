@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/prbllm/go-metrics/internal/logger"
 )
 
 type Config struct {
@@ -31,9 +33,9 @@ func defaultConfig() *Config {
 	}
 }
 
-func InitConfig(flagsetName string) error {
-	globalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError)
-	globalConfig.loadFromEnvironment(flagsetName)
+func InitConfig(flagsetName string, logger logger.Logger) error {
+	globalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError, logger)
+	globalConfig.loadFromEnvironment(flagsetName, logger)
 	return globalConfig.Validate()
 }
 
@@ -44,8 +46,8 @@ func GetConfig() *Config {
 	return globalConfig
 }
 
-func SetConfig(config *Config) {
-	GetLogger().Infof("Setting config: %v", config.String())
+func SetConfig(config *Config, logger logger.Logger) {
+	logger.Infof("Setting config: %v", config.String())
 	globalConfig = config
 }
 
@@ -78,58 +80,58 @@ func (c *Config) String() string {
 		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore)
 }
 
-func (c *Config) loadFromEnvironment(flagsetName string) {
+func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
 	address, err := GetEnvironment(AddressEnvVar)
 	if err != nil {
-		GetLogger().Warnf("failed to get server host from environment: %v", err)
+		logger.Warnf("failed to get server host from environment: %v", err)
 	} else {
 		c.ServerHost = address
 	}
 
 	switch flagsetName {
 	case AgentFlagsSet:
-		c.loadAgentEnvironmets()
+		c.loadAgentEnvironmets(logger)
 	case ServerFlagsSet:
-		c.loadServerEnvironmets()
+		c.loadServerEnvironmets(logger)
 	default:
-		GetLogger().Errorf("invalid flagset name: %s", flagsetName)
+		logger.Errorf("invalid flagset name: %s", flagsetName)
 	}
 }
 
-func (c *Config) loadAgentEnvironmets() {
+func (c *Config) loadAgentEnvironmets(logger logger.Logger) {
 	reportInterval, err := GetEnvironmentInt(ReportIntervalEnvVar)
 	if err != nil {
-		GetLogger().Warnf("failed to get report interval from environment: %v", err)
+		logger.Warnf("failed to get report interval from environment: %v", err)
 	} else {
 		c.AgentReportInterval = time.Duration(reportInterval) * time.Second
 	}
 
 	pollInterval, err := GetEnvironmentInt(PollIntervalEnvVar)
 	if err != nil {
-		GetLogger().Warnf("failed to get poll interval from environment: %v", err)
+		logger.Warnf("failed to get poll interval from environment: %v", err)
 	} else {
 		c.AgentPollInterval = time.Duration(pollInterval) * time.Second
 	}
 }
 
-func (c *Config) loadServerEnvironmets() {
+func (c *Config) loadServerEnvironmets(logger logger.Logger) {
 	storeInterval, err := GetEnvironmentInt(StoreIntervalEnvVar)
 	if err != nil {
-		GetLogger().Warnf("failed to get store interval from environment: %v", err)
+		logger.Warnf("failed to get store interval from environment: %v", err)
 	} else {
 		c.StoreInterval = time.Duration(storeInterval) * time.Second
 	}
 
 	fileStoragePath, err := GetEnvironment(FileStoragePathEnvVar)
 	if err != nil {
-		GetLogger().Warnf("failed to get file storage path from environment: %v", err)
+		logger.Warnf("failed to get file storage path from environment: %v", err)
 	} else {
 		c.FileStoragePath = fileStoragePath
 	}
 
 	restore, err := GetEnvironment(RestoreEnvVar)
 	if err != nil {
-		GetLogger().Warnf("failed to get restore from environment: %v", err)
+		logger.Warnf("failed to get restore from environment: %v", err)
 	} else {
 		if restore == "true" {
 			c.Restore = true

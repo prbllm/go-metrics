@@ -11,6 +11,7 @@ import (
 
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
 
@@ -18,42 +19,42 @@ import (
 )
 
 func main() {
-	err := config.InitConfig(config.ServerFlagsSet)
+	appLogger, err := logger.NewZapLogger()
+	if err != nil {
+		fmt.Println("Error creating logger: ", err)
+		os.Exit(1)
+	}
+	defer appLogger.Sync()
+
+	err = config.InitConfig(config.ServerFlagsSet, appLogger)
 	if err != nil {
 		fmt.Println("Error initializing config: ", err)
 		os.Exit(1)
 	}
 
-	err = config.InitLogger()
-	if err != nil {
-		fmt.Println("Error initializing logger: ", err)
-		os.Exit(1)
-	}
-	defer config.GetLogger().Sync()
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	storage := repository.NewMemStorage()
-	fileDecorator := repository.NewFileStorageDecorator(storage, config.GetConfig().FileStoragePath)
+	storage := repository.NewMemStorage(appLogger)
+	fileDecorator := repository.NewFileStorageDecorator(storage, config.GetConfig().FileStoragePath, appLogger)
 
 	if config.GetConfig().Restore {
 		err = fileDecorator.LoadFromFile()
 		if err != nil {
-			config.GetLogger().Errorf("Error loading file: %v", err)
+			appLogger.Errorf("Error loading file: %v", err)
 		} else {
-			config.GetLogger().Info("Metrics loaded from file")
+			appLogger.Info("Metrics loaded from file")
 		}
 	}
 
 	fileDecorator.StartPeriodicSave(ctx)
 
 	metricsService := service.NewMetricsService(fileDecorator)
-	handlers := handler.NewHandlers(metricsService)
+	handlers := handler.NewHandlers(metricsService, appLogger)
 	router := chi.NewRouter()
 
-	router.Use(handler.LoggingMiddleware())
-	router.Use(handler.GzipDecompressMiddleware())
+	router.Use(handler.LoggingMiddleware(appLogger))
+	router.Use(handler.GzipDecompressMiddleware(appLogger))
 
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandlerByURL)
@@ -75,7 +76,7 @@ func main() {
 	serverErr := make(chan error, 1)
 
 	go func() {
-		config.GetLogger().Infof("Server starting on %s", config.GetConfig().ServerHost)
+		appLogger.Infof("Server starting on %s", config.GetConfig().ServerHost)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErr <- err
 		}
@@ -83,17 +84,17 @@ func main() {
 
 	select {
 	case <-ctx.Done():
-		config.GetLogger().Info("Received shutdown signal, shutting down server...")
+		appLogger.Info("Received shutdown signal, shutting down server...")
 	case err := <-serverErr:
-		config.GetLogger().Errorf("Server error: %v", err, "Shutting down server due to error...")
+		appLogger.Errorf("Server error: %v", err)
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		config.GetLogger().Errorf("Server forced to shutdown: %v", err)
+		appLogger.Errorf("Server forced to shutdown: %v", err)
 	} else {
-		config.GetLogger().Info("Server exited gracefully")
+		appLogger.Info("Server exited gracefully")
 	}
 }

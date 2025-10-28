@@ -5,13 +5,14 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMetricsService_UpdateMetric(t *testing.T) {
-	storage := repository.NewMemStorage()
+	storage := repository.NewMemStorage(logger.NewMockLogger())
 	service := NewMetricsService(storage)
 
 	tests := []struct {
@@ -55,7 +56,7 @@ func TestMetricsService_UpdateMetric(t *testing.T) {
 }
 
 func TestMetricsService_CounterAccumulation(t *testing.T) {
-	storage := repository.NewMemStorage()
+	storage := repository.NewMemStorage(logger.NewMockLogger())
 	service := NewMetricsService(storage)
 
 	const metricName = "test_counter"
@@ -73,7 +74,7 @@ func TestMetricsService_CounterAccumulation(t *testing.T) {
 }
 
 func TestMetricsService_GaugeReplacement(t *testing.T) {
-	storage := repository.NewMemStorage()
+	storage := repository.NewMemStorage(logger.NewMockLogger())
 	service := NewMetricsService(storage)
 
 	const metricName = "test_gauge"
@@ -94,7 +95,7 @@ func TestMetricsService_GaugeReplacement(t *testing.T) {
 }
 
 func TestMetricsService_GetAllMetrics(t *testing.T) {
-	storage := repository.NewMemStorage()
+	storage := repository.NewMemStorage(logger.NewMockLogger())
 	service := NewMetricsService(storage)
 
 	expectedValue := float64(10.5)
@@ -125,7 +126,7 @@ func TestMetricsService_GetAllMetrics(t *testing.T) {
 }
 
 func TestMetricsService_GetMetric(t *testing.T) {
-	storage := repository.NewMemStorage()
+	storage := repository.NewMemStorage(logger.NewMockLogger())
 	service := NewMetricsService(storage)
 	expectedValue := float64(10.5)
 

@@ -4,14 +4,22 @@ import (
 	"math/rand/v2"
 	"runtime"
 
-	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
-type RuntimeMetricsCollector struct{}
+type RuntimeMetricsCollector struct {
+	logger logger.Logger
+}
+
+func NewRuntimeMetricsCollector(logger logger.Logger) *RuntimeMetricsCollector {
+	return &RuntimeMetricsCollector{
+		logger: logger,
+	}
+}
 
 func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
-	config.GetLogger().Debug("Collecting runtime metrics...")
+	c.logger.Debug("Collecting runtime metrics...")
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 

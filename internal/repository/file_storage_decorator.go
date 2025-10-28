@@ -8,16 +8,22 @@ import (
 	"time"
 
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
 type FileStorageDecorator struct {
 	memStorage *MemStorage
 	filePath   string
+	logger     logger.Logger
 }
 
-func NewFileStorageDecorator(memStorage *MemStorage, filePath string) *FileStorageDecorator {
-	return &FileStorageDecorator{memStorage: memStorage, filePath: filePath}
+func NewFileStorageDecorator(memStorage *MemStorage, filePath string, logger logger.Logger) *FileStorageDecorator {
+	return &FileStorageDecorator{
+		memStorage: memStorage,
+		filePath:   filePath,
+		logger:     logger,
+	}
 }
 
 func (f *FileStorageDecorator) UpdateMetric(metric *model.Metrics) error {
@@ -28,7 +34,7 @@ func (f *FileStorageDecorator) UpdateMetric(metric *model.Metrics) error {
 
 	if config.GetConfig().StoreInterval == 0 {
 		if saveErr := f.SaveToFile(); saveErr != nil {
-			config.GetLogger().Errorf("Failed to save metrics: %v", saveErr)
+			f.logger.Errorf("Failed to save metrics: %v", saveErr)
 		}
 	}
 
@@ -71,11 +77,11 @@ func (f *FileStorageDecorator) LoadFromFile() error {
 func (f *FileStorageDecorator) StartPeriodicSave(ctx context.Context) {
 	storeInterval := config.GetConfig().StoreInterval
 	if storeInterval <= 0 {
-		config.GetLogger().Info("StoreInterval is 0 or negative, skipping periodic save")
+		f.logger.Info("StoreInterval is 0 or negative, skipping periodic save")
 		return
 	}
 
-	config.GetLogger().Infof("Starting periodic save every %v", storeInterval)
+	f.logger.Infof("Starting periodic save every %v", storeInterval)
 
 	go func() {
 		ticker := time.NewTicker(storeInterval)
@@ -85,12 +91,12 @@ func (f *FileStorageDecorator) StartPeriodicSave(ctx context.Context) {
 			select {
 			case <-ticker.C:
 				if err := f.SaveToFile(); err != nil {
-					config.GetLogger().Errorf("Failed to save metrics: %v", err)
+					f.logger.Errorf("Failed to save metrics: %v", err)
 				} else {
-					config.GetLogger().Infof("Metrics saved to file: %s", f.filePath)
+					f.logger.Infof("Metrics saved to file: %s", f.filePath)
 				}
 			case <-ctx.Done():
-				config.GetLogger().Info("Stopping periodic save")
+				f.logger.Info("Stopping periodic save")
 				return
 			}
 		}

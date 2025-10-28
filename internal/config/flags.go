@@ -5,9 +5,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/prbllm/go-metrics/internal/logger"
 )
 
-func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorHandling) *Config {
+func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorHandling, logger logger.Logger) *Config {
 	config := defaultConfig()
 
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
@@ -20,7 +22,7 @@ func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorH
 	case ServerFlagsSet:
 		parseServerFlags(fs, config, args)
 	default:
-		GetLogger().Fatalf("invalid flagset name: %s", flagsetName)
+		logger.Errorf("invalid flagset name: %s", flagsetName)
 	}
 
 	return config

@@ -15,6 +15,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
@@ -24,12 +25,13 @@ import (
 )
 
 func TestHTTPAPIIntegration(t *testing.T) {
-	storage := repository.NewMemStorage()
+	logger := logger.NewMockLogger()
+	storage := repository.NewMemStorage(logger)
 	metricsService := service.NewMetricsService(storage)
-	handlers := handler.NewHandlers(metricsService)
+	handlers := handler.NewHandlers(metricsService, logger)
 
 	router := chi.NewRouter()
-	router.Use(handler.GzipDecompressMiddleware())
+	router.Use(handler.GzipDecompressMiddleware(logger))
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandlerByURL)
 		r.Route(config.UpdatePath, func(r chi.Router) {
@@ -511,8 +513,9 @@ func NewFileStorageTestHelper(t *testing.T, pattern string) *FileStorageTestHelp
 	tempFile, err := os.CreateTemp("", pattern)
 	require.NoError(t, err, "Failed to create temp file")
 
-	storage := repository.NewMemStorage()
-	decorator := repository.NewFileStorageDecorator(storage, tempFile.Name())
+	logger := logger.NewMockLogger()
+	storage := repository.NewMemStorage(logger)
+	decorator := repository.NewFileStorageDecorator(storage, tempFile.Name(), logger)
 
 	return &FileStorageTestHelper{
 		t:         t,
@@ -625,8 +628,9 @@ func TestFileStorageIntegration(t *testing.T) {
 	})
 
 	t.Run("integration_error_handling", func(t *testing.T) {
-		storage := repository.NewMemStorage()
-		fileDecorator := repository.NewFileStorageDecorator(storage, "/invalid/path/that/does/not/exist/metrics.json")
+		logger := logger.NewMockLogger()
+		storage := repository.NewMemStorage(logger)
+		fileDecorator := repository.NewFileStorageDecorator(storage, "/invalid/path/that/does/not/exist/metrics.json", logger)
 
 		metric := &model.Metrics{
 			ID:    "test_error",
@@ -652,10 +656,11 @@ func TestFileStorageIntegration(t *testing.T) {
 			FileStoragePath:     "test_sync.json",
 			Restore:             false,
 		}
+		logger := logger.NewMockLogger()
 
-		config.SetConfig(testConfig)
+		config.SetConfig(testConfig, logger)
 
-		defer config.SetConfig(originalConfig)
+		defer config.SetConfig(originalConfig, logger)
 
 		helper := NewFileStorageTestHelper(t, "test_config_sync_*.json")
 		defer helper.Close()
@@ -690,10 +695,10 @@ func TestFileStorageIntegration(t *testing.T) {
 			FileStoragePath:     "test_async.json",
 			Restore:             false,
 		}
+		logger := logger.NewMockLogger()
+		config.SetConfig(testConfig, logger)
 
-		config.SetConfig(testConfig)
-
-		defer config.SetConfig(originalConfig)
+		defer config.SetConfig(originalConfig, logger)
 
 		helper := NewFileStorageTestHelper(t, "test_config_async_*.json")
 		defer helper.Close()

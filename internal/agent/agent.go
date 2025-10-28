@@ -11,6 +11,7 @@ import (
 
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
@@ -20,23 +21,25 @@ type Agent struct {
 	route          string
 	pollInterval   time.Duration
 	reportInterval time.Duration
+	logger         logger.Logger
 }
 
-func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, route string, pollInterval time.Duration, reportInterval time.Duration) *Agent {
+func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, route string, pollInterval time.Duration, reportInterval time.Duration, logger logger.Logger) *Agent {
 	return &Agent{
 		client:         client,
 		collector:      collector,
 		route:          route,
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
+		logger:         logger,
 	}
 }
 
 func (a *Agent) Start(context context.Context) {
-	config.GetLogger().Infof("Starting agent with route: %s and agent poll interval: %s and agent report interval: %s", a.route, a.pollInterval, a.reportInterval)
+	a.logger.Infof("Starting agent with route: %s and agent poll interval: %s and agent report interval: %s", a.route, a.pollInterval, a.reportInterval)
 	if a.collector == nil {
 
-		config.GetLogger().Error("Collector is nil")
+		a.logger.Error("Collector is nil")
 		return
 	}
 
@@ -44,7 +47,7 @@ func (a *Agent) Start(context context.Context) {
 	for {
 		select {
 		case <-context.Done():
-			config.GetLogger().Info("Context done")
+			a.logger.Info("Context done")
 			return
 		default:
 		}
@@ -53,7 +56,7 @@ func (a *Agent) Start(context context.Context) {
 		for range collectCounter {
 			select {
 			case <-context.Done():
-				config.GetLogger().Info("Context done")
+				a.logger.Info("Context done")
 				return
 			default:
 			}
@@ -62,7 +65,7 @@ func (a *Agent) Start(context context.Context) {
 		}
 		err := a.SendMetricsJSON(metrics)
 		if err != nil {
-			config.GetLogger().Errorf("Error sending metrics: %v", err)
+			a.logger.Errorf("Error sending metrics: %v", err)
 		}
 	}
 }
@@ -75,16 +78,16 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 	for _, metric := range metrics {
 		url, err := a.generateURL(metric)
 		if err != nil {
-			config.GetLogger().Warnf("Error generating url: %v. Skipping...", err)
+			a.logger.Warnf("Error generating url: %v. Skipping...", err)
 			continue
 		}
-		config.GetLogger().Debugf("Sending metric: %s to url: %s", metric.String(), url)
+		a.logger.Debugf("Sending metric: %s to url: %s", metric.String(), url)
 		response, err := a.client.Post(url, config.ContentTypeTextPlain, strings.NewReader(""))
 		if err != nil {
-			config.GetLogger().Errorf("Error sending metric: %v. Skipping...", err)
+			a.logger.Errorf("Error sending metric: %v. Skipping...", err)
 			continue
 		}
-		config.GetLogger().Debugf("Response: %s", response.Status)
+		a.logger.Debugf("Response: %s", response.Status)
 		response.Body.Close()
 	}
 	return nil
@@ -123,24 +126,24 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 	for _, metric := range metrics {
 		jsonData, err := json.Marshal(metric)
 		if err != nil {
-			config.GetLogger().Warnf("Error marshaling metric to JSON: %v. Skipping...", err)
+			a.logger.Warnf("Error marshaling metric to JSON: %v. Skipping...", err)
 			continue
 		}
 
 		compressedData, err := a.compressJSON(jsonData)
 		if err != nil {
-			config.GetLogger().Warnf("Error compressing JSON data: %v. Skipping...", err)
+			a.logger.Warnf("Error compressing JSON data: %v. Skipping...", err)
 			continue
 		}
 
 		stats := compression.GetCompressionStats(jsonData, compressedData)
-		config.GetLogger().Info("Sending metric via compressed JSON")
-		config.GetLogger().Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
+		a.logger.Info("Sending metric via compressed JSON")
+		a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
 			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 		req, err := http.NewRequest(http.MethodPost, a.route, bytes.NewBuffer(compressedData))
 		if err != nil {
-			config.GetLogger().Errorf("Error creating request: %v. Skipping...", err)
+			a.logger.Errorf("Error creating request: %v. Skipping...", err)
 			continue
 		}
 
@@ -149,11 +152,11 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 
 		response, err := a.client.Do(req)
 		if err != nil {
-			config.GetLogger().Errorf("Error sending metric via JSON: %v. Skipping...", err)
+			a.logger.Errorf("Error sending metric via JSON: %v. Skipping...", err)
 			continue
 		}
 
-		config.GetLogger().Debugf("JSON Response: %s", response.Status)
+		a.logger.Debugf("JSON Response: %s", response.Status)
 		response.Body.Close()
 	}
 	return nil

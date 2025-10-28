@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +41,7 @@ func TestAgentGenerateUrl(t *testing.T) {
 		},
 	}
 
-	agent := NewAgent(nil, nil, "http://localhost:8080/update/", 0, 0)
+	agent := NewAgent(nil, nil, "http://localhost:8080/update/", 0, 0, logger.NewMockLogger())
 	for _, test := range testData {
 		url, err := agent.generateURL(test.metric)
 		if test.expectError {
@@ -56,7 +57,7 @@ func TestAgentSendMetrics(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
-	agent := NewAgent(http.DefaultClient, nil, "http://localhost:8080/update/", 0, 0)
+	agent := NewAgent(http.DefaultClient, nil, "http://localhost:8080/update/", 0, 0, logger.NewMockLogger())
 	metrics := []model.Metrics{
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
@@ -69,7 +70,7 @@ func TestAgentSendMetricsJSON(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
-	agent := NewAgent(http.DefaultClient, nil, "http://localhost:8080/update/", 0, 0)
+	agent := NewAgent(http.DefaultClient, nil, "http://localhost:8080/update/", 0, 0, logger.NewMockLogger())
 	metrics := []model.Metrics{
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
@@ -82,7 +83,7 @@ func TestAgentSendMetricsJSONWithNilClient(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
-	agent := NewAgent(nil, nil, "http://localhost:8080/update/", 0, 0)
+	agent := NewAgent(nil, nil, "http://localhost:8080/update/", 0, 0, logger.NewMockLogger())
 	metrics := []model.Metrics{
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},

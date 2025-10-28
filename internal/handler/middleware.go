@@ -10,9 +10,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/logger"
 )
 
-func LoggingMiddleware() func(http.Handler) http.Handler {
+func LoggingMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -22,7 +23,7 @@ func LoggingMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(ww, r)
 
 			duration := time.Since(start)
-			config.GetLogger().Infof("HTTP Request: Method=%s, URL=%s, Status=%d, Size=%d bytes, Duration=%v, RemoteAddr=%s",
+			logger.Infof("HTTP Request: Method=%s, URL=%s, Status=%d, Size=%d bytes, Duration=%v, RemoteAddr=%s",
 				r.Method,
 				r.URL.String(),
 				ww.Status(),
@@ -34,11 +35,11 @@ func LoggingMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-func GzipDecompressMiddleware() func(http.Handler) http.Handler {
+func GzipDecompressMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get(config.ContentEncodingHeader) == config.ContentEncodingGzip {
-				config.GetLogger().Debug("Decompressing gzip request body")
+				logger.Debug("Decompressing gzip request body")
 
 				decompressedBody, err := compression.DecompressReader(r.Body)
 				if err != nil {
@@ -51,7 +52,7 @@ func GzipDecompressMiddleware() func(http.Handler) http.Handler {
 
 				r.Header.Del(config.ContentEncodingHeader)
 
-				config.GetLogger().Debugf("Successfully decompressed %d bytes", len(decompressedBody))
+				logger.Debugf("Successfully decompressed %d bytes", len(decompressedBody))
 			}
 
 			if compression.SupportsGzip(r.Header.Get(config.AcceptEncodingHeader)) {
@@ -66,7 +67,7 @@ func GzipDecompressMiddleware() func(http.Handler) http.Handler {
 				w.Header().Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
 				w.Header().Set(config.VaryHeader, config.AcceptEncodingHeader)
 
-				config.GetLogger().Debug("Compressing response with gzip")
+				logger.Debug("Compressing response with gzip")
 
 				next.ServeHTTP(wrappedWriter, r)
 			} else {

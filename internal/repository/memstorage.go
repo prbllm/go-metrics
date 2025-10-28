@@ -3,17 +3,19 @@ package repository
 import (
 	"fmt"
 
-	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
 type MemStorage struct {
 	metrics map[string]*model.Metrics
+	logger  logger.Logger
 }
 
-func NewMemStorage() *MemStorage {
+func NewMemStorage(logger logger.Logger) *MemStorage {
 	return &MemStorage{
 		metrics: make(map[string]*model.Metrics),
+		logger:  logger,
 	}
 }
 
@@ -30,7 +32,7 @@ func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 			metric.Delta = &newDelta
 		}
 	}
-	config.GetLogger().Debugf("Updating metric: %s", metric.String())
+	m.logger.Debugf("Updating metric: %s", metric.String())
 	m.metrics[key] = metric
 	return nil
 }
@@ -45,7 +47,7 @@ func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
 	if !ok {
 		return nil, fmt.Errorf("metric %s not found", key)
 	}
-	config.GetLogger().Debugf("Getting metric: %s", val.String())
+	m.logger.Debugf("Getting metric: %s", val.String())
 	return val, nil
 }
 
@@ -54,6 +56,6 @@ func (m *MemStorage) GetAllMetrics() []*model.Metrics {
 	for _, metric := range m.metrics {
 		metrics = append(metrics, metric)
 	}
-	config.GetLogger().Debugf("Getting all metrics (%s)...", len(metrics))
+	m.logger.Debugf("Getting all metrics (%d)...", len(metrics))
 	return metrics
 }
