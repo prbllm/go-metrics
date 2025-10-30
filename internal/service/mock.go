@@ -11,6 +11,10 @@ func (m *MockMetricsService) UpdateMetric(metricType, metricName, metricValue st
 	return m.Error
 }
 
+func (m *MockMetricsService) UpdateMetricByStruct(metric *model.Metrics) error {
+	return m.Error
+}
+
 func (m *MockMetricsService) GetMetric(metricType, metricName string) (*model.Metrics, error) {
 	return nil, m.Error
 }

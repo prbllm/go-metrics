@@ -49,3 +49,7 @@ func (s *MetricsService) UpdateMetric(metricType, metricName, metricValue string
 func (s *MetricsService) GetAllMetrics() ([]*model.Metrics, error) {
 	return s.repository.GetAllMetrics(), nil
 }
+
+func (s *MetricsService) UpdateMetricByStruct(metric *model.Metrics) error {
+	return s.repository.UpdateMetric(metric)
+}

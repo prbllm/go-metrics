@@ -29,3 +29,20 @@ func ValidateMetricValue(metricType, value string) error {
 	}
 	return nil
 }
+
+func ValidateMetric(metric *model.Metrics) error {
+	if err := ValidateMetricType(metric.MType); err != nil {
+		return err
+	}
+	switch metric.MType {
+	case model.Counter:
+		if metric.Delta == nil {
+			return fmt.Errorf("%s has no delta", metric.ID)
+		}
+	case model.Gauge:
+		if metric.Value == nil {
+			return fmt.Errorf("%s has no value", metric.ID)
+		}
+	}
+	return nil
+}

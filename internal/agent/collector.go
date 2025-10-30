@@ -1,17 +1,25 @@
 package agent
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"runtime"
 
+	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
-type RuntimeMetricsCollector struct{}
+type RuntimeMetricsCollector struct {
+	logger logger.Logger
+}
+
+func NewRuntimeMetricsCollector(logger logger.Logger) *RuntimeMetricsCollector {
+	return &RuntimeMetricsCollector{
+		logger: logger,
+	}
+}
 
 func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
-	fmt.Println("Collecting runtime metrics...")
+	c.logger.Debug("Collecting runtime metrics...")
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
@@ -53,9 +61,23 @@ func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
 }
 
 func (c *RuntimeMetricsCollector) ToFloatPointer(number any) *float64 {
-	f, ok := number.(float64)
-	if !ok {
-		return nil
+	switch v := number.(type) {
+	case float64:
+		return &v
+	case uint64:
+		f := float64(v)
+		return &f
+	case uint32:
+		f := float64(v)
+		return &f
+	case int64:
+		f := float64(v)
+		return &f
+	case int32:
+		f := float64(v)
+		return &f
+	default:
+		zero := 0.0
+		return &zero
 	}
-	return &f
 }
