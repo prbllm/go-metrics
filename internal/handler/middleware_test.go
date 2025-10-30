@@ -11,16 +11,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
-	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestLoggingMiddleware(t *testing.T) {
 	router := chi.NewRouter()
-	router.Use(LoggingMiddleware(logger.NewMockLogger()))
+	router.Use(LoggingMiddleware(zaptest.NewLogger(t).Sugar()))
 
 	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -38,7 +38,7 @@ func TestLoggingMiddleware(t *testing.T) {
 }
 
 func TestMiddlewareWithHandlers(t *testing.T) {
-	logger := logger.NewMockLogger()
+	logger := zaptest.NewLogger(t).Sugar()
 	storage := repository.NewMemStorage(logger)
 	metricsService := service.NewMetricsService(storage)
 	handlers := NewHandlers(metricsService, logger)
@@ -71,7 +71,7 @@ func TestGzipDecompressMiddleware(t *testing.T) {
 	require.NoError(t, err, "Failed to compress data")
 
 	router := chi.NewRouter()
-	router.Use(GzipDecompressMiddleware(logger.NewMockLogger()))
+	router.Use(GzipDecompressMiddleware(zaptest.NewLogger(t).Sugar()))
 
 	router.Post("/test", func(w http.ResponseWriter, r *http.Request) {
 		require.Empty(t, r.Header.Get(config.ContentEncodingHeader), "Content-Encoding header should be removed")
@@ -127,7 +127,7 @@ func TestGzipDecompressMiddlewareWithAcceptEncoding(t *testing.T) {
 	responseData := []byte(`{"message":"Hello, World!","data":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100],"description":"This is a large JSON response that should be compressed effectively by gzip compression algorithm"}`)
 
 	router := chi.NewRouter()
-	router.Use(GzipDecompressMiddleware(logger.NewMockLogger()))
+	router.Use(GzipDecompressMiddleware(zaptest.NewLogger(t).Sugar()))
 
 	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

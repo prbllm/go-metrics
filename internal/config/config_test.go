@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func cleanupEnvironment() {
@@ -80,7 +80,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 			}
 
 			config := defaultConfig()
-			logger := logger.NewMockLogger()
+			logger := zaptest.NewLogger(t).Sugar()
 			config.loadFromEnvironment(ServerFlagsSet, logger)
 			config.loadFromEnvironment(AgentFlagsSet, logger)
 
@@ -175,7 +175,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				os.Setenv(key, value)
 			}
 
-			logger := logger.NewMockLogger()
+			logger := zaptest.NewLogger(t).Sugar()
 			config := ParseFlags(AgentFlagsSet, tt.flags, flag.ContinueOnError, logger)
 
 			config.loadFromEnvironment(AgentFlagsSet, logger)
@@ -285,7 +285,7 @@ func TestConfigPriorityServer(t *testing.T) {
 			for key, value := range tt.envVars {
 				os.Setenv(key, value)
 			}
-			logger := logger.NewMockLogger()
+			logger := zaptest.NewLogger(t).Sugar()
 			config := ParseFlags(ServerFlagsSet, tt.flags, flag.ContinueOnError, logger)
 
 			config.loadFromEnvironment(ServerFlagsSet, logger)

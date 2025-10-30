@@ -15,17 +15,17 @@ import (
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
-	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/go-chi/chi/v5"
 )
 
 func TestHTTPAPIIntegration(t *testing.T) {
-	logger := logger.NewMockLogger()
+	logger := zaptest.NewLogger(t).Sugar()
 	storage := repository.NewMemStorage(logger)
 	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService, logger)
@@ -513,7 +513,7 @@ func NewFileStorageTestHelper(t *testing.T, pattern string) *FileStorageTestHelp
 	tempFile, err := os.CreateTemp("", pattern)
 	require.NoError(t, err, "Failed to create temp file")
 
-	logger := logger.NewMockLogger()
+	logger := zaptest.NewLogger(t).Sugar()
 	storage := repository.NewMemStorage(logger)
 	decorator := repository.NewFileStorageDecorator(storage, tempFile.Name(), logger)
 
@@ -628,7 +628,7 @@ func TestFileStorageIntegration(t *testing.T) {
 	})
 
 	t.Run("integration_error_handling", func(t *testing.T) {
-		logger := logger.NewMockLogger()
+		logger := zaptest.NewLogger(t).Sugar()
 		storage := repository.NewMemStorage(logger)
 		fileDecorator := repository.NewFileStorageDecorator(storage, "/invalid/path/that/does/not/exist/metrics.json", logger)
 
@@ -656,7 +656,7 @@ func TestFileStorageIntegration(t *testing.T) {
 			FileStoragePath:     "test_sync.json",
 			Restore:             false,
 		}
-		logger := logger.NewMockLogger()
+		logger := zaptest.NewLogger(t).Sugar()
 
 		config.SetConfig(testConfig, logger)
 
@@ -695,7 +695,7 @@ func TestFileStorageIntegration(t *testing.T) {
 			FileStoragePath:     "test_async.json",
 			Restore:             false,
 		}
-		logger := logger.NewMockLogger()
+		logger := zaptest.NewLogger(t).Sugar()
 		config.SetConfig(testConfig, logger)
 
 		defer config.SetConfig(originalConfig, logger)

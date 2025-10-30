@@ -3,9 +3,9 @@ package agent
 import (
 	"testing"
 
-	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func getMetricByID(metrics []model.Metrics, id string) *model.Metrics {
@@ -18,7 +18,7 @@ func getMetricByID(metrics []model.Metrics, id string) *model.Metrics {
 }
 
 func TestCollectorMetrics(t *testing.T) {
-	collector := RuntimeMetricsCollector{logger.NewMockLogger()}
+	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
 	metrics := collector.Collect()
 	require.NotNil(t, metrics, "Metrics is nil")
 	require.NotEmpty(t, metrics, "Metrics is empty")
@@ -63,7 +63,7 @@ func TestCollectorMetrics(t *testing.T) {
 }
 
 func TestCollectorMetricsPollCountType(t *testing.T) {
-	collector := RuntimeMetricsCollector{logger.NewMockLogger()}
+	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
 	metrics := collector.Collect()
 
 	const metricName = "PollCount"
@@ -80,7 +80,7 @@ func TestCollectorMetricsPollCountType(t *testing.T) {
 }
 
 func TestCollectorMetricsRandomValueType(t *testing.T) {
-	collector := RuntimeMetricsCollector{logger.NewMockLogger()}
+	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
 	metrics := collector.Collect()
 
 	const metricName = "RandomValue"

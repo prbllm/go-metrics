@@ -12,9 +12,9 @@ import (
 	"github.com/prbllm/go-metrics/internal/agent"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
-	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestFullIntegration(t *testing.T) {
@@ -27,8 +27,9 @@ func TestFullIntegration(t *testing.T) {
 	context, cancel := context.WithTimeout(context.Background(), time.Duration(10)*time.Second)
 	defer cancel()
 
-	collector := agent.NewRuntimeMetricsCollector(logger.NewMockLogger())
-	agent := agent.NewAgent(http.DefaultClient, collector, server.URL+"/update/", time.Duration(1)*time.Second, time.Duration(2)*time.Second, logger.NewMockLogger())
+	logger := zaptest.NewLogger(t).Sugar()
+	collector := agent.NewRuntimeMetricsCollector(logger)
+	agent := agent.NewAgent(http.DefaultClient, collector, server.URL+"/update/", time.Duration(1)*time.Second, time.Duration(2)*time.Second, logger)
 	go agent.Start(context)
 	<-context.Done()
 }
@@ -57,8 +58,9 @@ func TestAgentJSONIntegration(t *testing.T) {
 	}))
 	defer server.Close()
 
-	collector := agent.NewRuntimeMetricsCollector(logger.NewMockLogger())
-	agent := agent.NewAgent(http.DefaultClient, collector, server.URL+config.UpdatePath, time.Duration(1)*time.Second, time.Duration(2)*time.Second, logger.NewMockLogger())
+	logger := zaptest.NewLogger(t).Sugar()
+	collector := agent.NewRuntimeMetricsCollector(logger)
+	agent := agent.NewAgent(http.DefaultClient, collector, server.URL+config.UpdatePath, time.Duration(1)*time.Second, time.Duration(2)*time.Second, logger)
 
 	metrics := collector.Collect()
 	err := agent.SendMetricsJSON(metrics)

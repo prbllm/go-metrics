@@ -1,11 +1,11 @@
 package logger
 
 type Logger interface {
-	Debug(msg string)
-	Info(msg string)
-	Warn(msg string)
-	Error(msg string)
-	Fatal(msg string)
+	Debug(args ...interface{})
+	Info(args ...interface{})
+	Warn(args ...interface{})
+	Error(args ...interface{})
+	Fatal(args ...interface{})
 
 	Debugf(format string, args ...interface{})
 	Infof(format string, args ...interface{})

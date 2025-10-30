@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/config"
-	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/service"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func setupTestRouter(handlers *Handlers) *chi.Mux {
@@ -82,7 +82,7 @@ func TestUpdateHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, logger.NewMockLogger())
+			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
@@ -97,7 +97,7 @@ func TestUpdateHandler(t *testing.T) {
 }
 
 func TestNotFoundHandler(t *testing.T) {
-	handlers := NewHandlers(&service.MockMetricsService{}, logger.NewMockLogger())
+	handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
 	req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
 	rr := httptest.NewRecorder()
 
@@ -138,7 +138,7 @@ func TestGetAllMetricsHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, logger.NewMockLogger())
+			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
@@ -195,7 +195,7 @@ func TestGetValueHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, logger.NewMockLogger())
+			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
@@ -284,7 +284,7 @@ func TestUpdateMetricHandlerByJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, logger.NewMockLogger())
+			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
@@ -375,7 +375,7 @@ func TestGetValueHandlerByJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, logger.NewMockLogger())
+			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
