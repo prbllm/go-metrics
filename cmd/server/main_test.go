@@ -27,7 +27,7 @@ import (
 func TestHTTPAPIIntegration(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	storage := repository.NewMemStorage(logger)
-	metricsService := service.NewMetricsService(storage, nil)
+	metricsService := service.NewMetricsService(storage)
 	handlers := handler.NewHandlers(metricsService, logger)
 
 	router := chi.NewRouter()

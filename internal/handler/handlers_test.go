@@ -9,8 +9,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/config"
-	"github.com/prbllm/go-metrics/internal/service"
+	"github.com/prbllm/go-metrics/internal/mocks"
+	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -84,7 +86,15 @@ func TestUpdateHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if test.expectedStatusCode == http.StatusOK {
+				mockService.EXPECT().UpdateMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
@@ -99,7 +109,11 @@ func TestUpdateHandler(t *testing.T) {
 }
 
 func TestNotFoundHandler(t *testing.T) {
-	handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := mocks.NewMockService(ctrl)
+	handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
 	req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
 	rr := httptest.NewRecorder()
 
@@ -140,7 +154,15 @@ func TestGetAllMetricsHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if test.method == http.MethodGet && test.expectedStatusCode == http.StatusOK {
+				mockService.EXPECT().GetAllMetrics().Return([]*model.Metrics{}, nil).AnyTimes()
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
@@ -197,7 +219,15 @@ func TestGetValueHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if test.method == http.MethodGet && test.expectedStatusCode == http.StatusNotFound {
+				mockService.EXPECT().GetMetric(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found")).AnyTimes()
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
@@ -286,7 +316,15 @@ func TestUpdateMetricHandlerByJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if test.expectedStatusCode == http.StatusOK {
+				mockService.EXPECT().UpdateMetricByStruct(gomock.Any()).Return(nil).AnyTimes()
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
@@ -377,7 +415,15 @@ func TestGetValueHandlerByJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := NewHandlers(&service.MockMetricsService{}, zaptest.NewLogger(t).Sugar())
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if test.expectedStatusCode == http.StatusNotFound {
+				mockService.EXPECT().GetMetric(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found")).AnyTimes()
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
 			router := setupTestRouter(handlers)
 
 			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
@@ -431,11 +477,12 @@ func TestPingHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := &service.MockMetricsService{}
-			if tt.pingError != nil {
-				mockService.Error = tt.pingError
-			} else if tt.method == http.MethodGet {
-				mockService.Error = nil
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if tt.method == http.MethodGet {
+				mockService.EXPECT().Ping().Return(tt.pingError).Times(1)
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())

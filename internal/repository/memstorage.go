@@ -61,5 +61,5 @@ func (m *MemStorage) GetAllMetrics() []*model.Metrics {
 }
 
 func (m *MemStorage) Ping() error {
-	return nil
+	return fmt.Errorf("not supported")
 }

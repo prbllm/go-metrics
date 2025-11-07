@@ -9,14 +9,12 @@ import (
 )
 
 type MetricsService struct {
-	repository         repository.MetricsRepository
-	postgresRepository repository.MetricsRepository
+	repository repository.MetricsRepository
 }
 
-func NewMetricsService(repository repository.MetricsRepository, postgresRepository repository.MetricsRepository) Service {
+func NewMetricsService(repository repository.MetricsRepository) Service {
 	return &MetricsService{
-		repository:         repository,
-		postgresRepository: postgresRepository,
+		repository: repository,
 	}
 }
 
@@ -59,8 +57,5 @@ func (s *MetricsService) UpdateMetricByStruct(metric *model.Metrics) error {
 }
 
 func (s *MetricsService) Ping() error {
-	if s.postgresRepository == nil {
-		return fmt.Errorf("PostgreSQL repository is not configured")
-	}
-	return s.postgresRepository.Ping()
+	return s.repository.Ping()
 }

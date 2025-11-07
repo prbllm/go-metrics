@@ -1,19 +1,22 @@
 package service
 
 import (
+	"errors"
 	"sort"
 	"strconv"
 	"testing"
 
+	"github.com/prbllm/go-metrics/internal/mocks"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zaptest"
 )
 
 func TestMetricsService_UpdateMetric(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage, nil)
+	service := NewMetricsService(storage)
 
 	tests := []struct {
 		name        string
@@ -57,32 +60,26 @@ func TestMetricsService_UpdateMetric(t *testing.T) {
 
 func TestMetricsService_Ping(t *testing.T) {
 	tests := []struct {
-		name         string
-		postgresRepo repository.MetricsRepository
-		expectError  bool
+		name        string
+		repository  repository.MetricsRepository
+		expectError bool
 	}{
 		{
-			name:         "ping with PostgreSQL repository",
-			postgresRepo: repository.NewMemStorage(zaptest.NewLogger(t).Sugar()),
-			expectError:  false,
-		},
-		{
-			name:         "ping without PostgreSQL repository",
-			postgresRepo: nil,
-			expectError:  true,
+			name:        "ping with repository",
+			repository:  repository.NewMemStorage(zaptest.NewLogger(t).Sugar()),
+			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metricsRepo := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-			svc := NewMetricsService(metricsRepo, tt.postgresRepo)
+			svc := NewMetricsService(tt.repository)
 
 			err := svc.Ping()
 			if tt.expectError {
-				require.Error(t, err, "Expected error when PostgreSQL repository is not configured")
+				require.Error(t, err, "Expected error")
 			} else {
-				require.NoError(t, err, "Ping should succeed when PostgreSQL repository is configured")
+				require.NoError(t, err, "Ping should succeed")
 			}
 		})
 	}
@@ -90,7 +87,7 @@ func TestMetricsService_Ping(t *testing.T) {
 
 func TestMetricsService_CounterAccumulation(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage, nil)
+	service := NewMetricsService(storage)
 
 	const metricName = "test_counter"
 	const metricValue = "5"
@@ -108,7 +105,7 @@ func TestMetricsService_CounterAccumulation(t *testing.T) {
 
 func TestMetricsService_GaugeReplacement(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage, nil)
+	service := NewMetricsService(storage)
 
 	const metricName = "test_gauge"
 	const metricValue = "10.5"
@@ -129,7 +126,7 @@ func TestMetricsService_GaugeReplacement(t *testing.T) {
 
 func TestMetricsService_GetAllMetrics(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage, nil)
+	service := NewMetricsService(storage)
 
 	expectedValue := float64(10.5)
 	expectedDelta := int64(10)
@@ -160,7 +157,7 @@ func TestMetricsService_GetAllMetrics(t *testing.T) {
 
 func TestMetricsService_GetMetric(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage, nil)
+	service := NewMetricsService(storage)
 	expectedValue := float64(10.5)
 
 	expectedMetric := &model.Metrics{MType: model.Gauge, ID: "test_gauge", Value: &expectedValue}
@@ -175,4 +172,158 @@ func TestMetricsService_GetMetric(t *testing.T) {
 	metric, err = service.GetMetric(model.Counter, expectedMetric.ID)
 	require.NoError(t, err, "Get metric failed")
 	require.Equal(t, metric, expectedMetric, "Metric is not equal to expected")
+}
+
+func TestMetricsService_UpdateMetric_RepositoryError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	expectedError := errors.New("repository error")
+	mockRepo.EXPECT().UpdateMetric(gomock.Any()).Return(expectedError).Times(1)
+
+	err := service.UpdateMetric(model.Counter, "test_counter", "42")
+	require.Error(t, err, "Expected error from repository")
+	require.Equal(t, expectedError, err, "Error should be propagated from repository")
+}
+
+func TestMetricsService_GetMetric_RepositoryError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	expectedError := errors.New("repository error")
+	mockRepo.EXPECT().GetMetric(gomock.Any()).Return(nil, expectedError).Times(1)
+
+	metric, err := service.GetMetric(model.Counter, "test_counter")
+	require.Error(t, err, "Expected error from repository")
+	require.Nil(t, metric, "Metric should be nil on error")
+	require.Equal(t, expectedError, err, "Error should be propagated from repository")
+}
+
+func TestMetricsService_GetAllMetrics_RepositoryCall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	expectedMetrics := []*model.Metrics{
+		{ID: "test1", MType: model.Gauge, Value: func() *float64 { v := 1.5; return &v }()},
+		{ID: "test2", MType: model.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
+	}
+
+	mockRepo.EXPECT().GetAllMetrics().Return(expectedMetrics).Times(1)
+
+	metrics, err := service.GetAllMetrics()
+	require.NoError(t, err, "GetAllMetrics should not return error")
+	require.Equal(t, expectedMetrics, metrics, "Metrics should match repository response")
+}
+
+func TestMetricsService_UpdateMetricByStruct_RepositoryCall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	metric := &model.Metrics{
+		ID:    "test_metric",
+		MType: model.Gauge,
+		Value: func() *float64 { v := 3.14; return &v }(),
+	}
+
+	mockRepo.EXPECT().UpdateMetric(metric).Return(nil).Times(1)
+
+	err := service.UpdateMetricByStruct(metric)
+	require.NoError(t, err, "UpdateMetricByStruct should succeed")
+}
+
+func TestMetricsService_UpdateMetricByStruct_RepositoryError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	metric := &model.Metrics{
+		ID:    "test_metric",
+		MType: model.Counter,
+		Delta: func() *int64 { v := int64(42); return &v }(),
+	}
+
+	expectedError := errors.New("repository update failed")
+	mockRepo.EXPECT().UpdateMetric(metric).Return(expectedError).Times(1)
+
+	err := service.UpdateMetricByStruct(metric)
+	require.Error(t, err, "Expected error from repository")
+	require.Equal(t, expectedError, err, "Error should be propagated from repository")
+}
+
+func TestMetricsService_Ping_RepositoryCall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	mockRepo.EXPECT().Ping().Return(nil).Times(1)
+
+	err := service.Ping()
+	require.NoError(t, err, "Ping should succeed")
+}
+
+func TestMetricsService_Ping_RepositoryError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	expectedError := errors.New("ping failed")
+	mockRepo.EXPECT().Ping().Return(expectedError).Times(1)
+
+	err := service.Ping()
+	require.Error(t, err, "Expected error from repository")
+	require.Equal(t, expectedError, err, "Error should be propagated from repository")
+}
+
+func TestMetricsService_UpdateMetric_Counter_CallsRepositoryOnce(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	mockRepo.EXPECT().UpdateMetric(gomock.Any()).DoAndReturn(func(metric *model.Metrics) error {
+		require.Equal(t, model.Counter, metric.MType, "Metric type should be counter")
+		require.NotNil(t, metric.Delta, "Delta should not be nil")
+		require.Equal(t, int64(42), *metric.Delta, "Delta should be 42")
+		return nil
+	}).Times(1)
+
+	err := service.UpdateMetric(model.Counter, "test_counter", "42")
+	require.NoError(t, err, "UpdateMetric should succeed")
+}
+
+func TestMetricsService_UpdateMetric_Gauge_CallsRepositoryOnce(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	mockRepo.EXPECT().UpdateMetric(gomock.Any()).DoAndReturn(func(metric *model.Metrics) error {
+		require.Equal(t, model.Gauge, metric.MType, "Metric type should be gauge")
+		require.NotNil(t, metric.Value, "Value should not be nil")
+		require.Equal(t, 3.14, *metric.Value, "Value should be 3.14")
+		return nil
+	}).Times(1)
+
+	err := service.UpdateMetric(model.Gauge, "test_gauge", "3.14")
+	require.NoError(t, err, "UpdateMetric should succeed")
 }
