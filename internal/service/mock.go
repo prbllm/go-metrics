@@ -22,3 +22,7 @@ func (m *MockMetricsService) GetMetric(metricType, metricName string) (*model.Me
 func (m *MockMetricsService) GetAllMetrics() ([]*model.Metrics, error) {
 	return nil, m.Error
 }
+
+func (m *MockMetricsService) Ping() error {
+	return m.Error
+}

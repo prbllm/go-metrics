@@ -59,3 +59,7 @@ func (m *MemStorage) GetAllMetrics() []*model.Metrics {
 	m.logger.Debugf("Getting all metrics (%d)...", len(metrics))
 	return metrics
 }
+
+func (m *MemStorage) Ping() error {
+	return nil
+}

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 func setupTestRouter(handlers *Handlers) *chi.Mux {
 	router := chi.NewRouter()
+	router.Get(config.PingPath, handlers.PingHandler)
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandlerByURL)
 		r.Route(config.UpdatePath, func(r chi.Router) {
@@ -387,4 +389,81 @@ func TestGetValueHandlerByJSON(t *testing.T) {
 			require.Equal(t, test.expectedStatusCode, rr.Code, "Expected status code %d, got %d", test.expectedStatusCode, rr.Code)
 		})
 	}
+}
+
+func TestPingHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		pingError      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:           "successful ping",
+			method:         http.MethodGet,
+			pingError:      nil,
+			expectedStatus: http.StatusOK,
+			expectedBody:   "",
+		},
+		{
+			name:           "ping failure",
+			method:         http.MethodGet,
+			pingError:      errors.New("database connection failed"),
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Database unavailable\n",
+		},
+		{
+			name:           "invalid method POST",
+			method:         http.MethodPost,
+			pingError:      nil,
+			expectedStatus: http.StatusMethodNotAllowed,
+			expectedBody:   "Method not allowed\n",
+		},
+		{
+			name:           "invalid method PUT",
+			method:         http.MethodPut,
+			pingError:      nil,
+			expectedStatus: http.StatusMethodNotAllowed,
+			expectedBody:   "Method not allowed\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &service.MockMetricsService{}
+			if tt.pingError != nil {
+				mockService.Error = tt.pingError
+			} else if tt.method == http.MethodGet {
+				mockService.Error = nil
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
+
+			req := httptest.NewRequest(tt.method, config.PingPath, nil)
+			rr := httptest.NewRecorder()
+
+			handlers.PingHandler(rr, req)
+
+			require.Equal(t, tt.expectedStatus, rr.Code, "Expected status code %d, got %d", tt.expectedStatus, rr.Code)
+			if tt.expectedBody != "" {
+				require.Equal(t, tt.expectedBody, rr.Body.String(), "Expected body %q, got %q", tt.expectedBody, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestPingHandlerWithNilService(t *testing.T) {
+	handlers := &Handlers{
+		service: nil,
+		logger:  zaptest.NewLogger(t).Sugar(),
+	}
+
+	req := httptest.NewRequest(http.MethodGet, config.PingPath, nil)
+	rr := httptest.NewRecorder()
+
+	handlers.PingHandler(rr, req)
+
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+	require.Equal(t, "Internal server error\n", rr.Body.String())
 }

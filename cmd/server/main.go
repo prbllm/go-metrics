@@ -41,7 +41,7 @@ func main() {
 	if config.GetConfig().Restore {
 		err = fileDecorator.LoadFromFile()
 		if err != nil {
-			appLogger.Errorf("Error loading file: %v", err)
+			appLogger.Warnf("Error loading file: %v", err)
 		} else {
 			appLogger.Info("Metrics loaded from file")
 		}
@@ -49,12 +49,24 @@ func main() {
 
 	fileDecorator.StartPeriodicSave(ctx)
 
-	metricsService := service.NewMetricsService(fileDecorator)
+	var postgresRepository repository.MetricsRepository
+	if config.GetConfig().DatabaseDSN != "" {
+		postgresRepository, err = repository.NewPostgresRepository(config.GetConfig().DatabaseDSN, appLogger)
+		if err != nil {
+			appLogger.Errorf("Error creating PostgreSQL repository: %v", err)
+			postgresRepository = nil
+		}
+	}
+
+	metricsService := service.NewMetricsService(fileDecorator, postgresRepository)
+
 	handlers := handler.NewHandlers(metricsService, appLogger)
 	router := chi.NewRouter()
 
 	router.Use(handler.LoggingMiddleware(appLogger))
 	router.Use(handler.GzipDecompressMiddleware(appLogger))
+
+	router.Get(config.PingPath, handlers.PingHandler)
 
 	router.Route(config.CommonPath, func(r chi.Router) {
 		r.Get("/", handlers.GetAllMetricsHandlerByURL)
@@ -96,5 +108,15 @@ func main() {
 		appLogger.Errorf("Server forced to shutdown: %v", err)
 	} else {
 		appLogger.Info("Server exited gracefully")
+	}
+
+	if postgresRepository != nil {
+		if pgRepo, ok := postgresRepository.(*repository.PostgresRepository); ok {
+			if closeErr := pgRepo.Close(); closeErr != nil {
+				appLogger.Errorf("Error closing PostgreSQL connection: %v", closeErr)
+			} else {
+				appLogger.Info("PostgreSQL connection closed")
+			}
+		}
 	}
 }

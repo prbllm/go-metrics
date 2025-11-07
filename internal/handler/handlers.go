@@ -217,3 +217,24 @@ func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(metricLoaded)
 }
+
+func (h *Handlers) PingHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if h.service == nil {
+		h.logger.Error("Service is nil")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.service.Ping(); err != nil {
+		h.logger.Errorf("Database ping failed: %v", err)
+		http.Error(w, "Database unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

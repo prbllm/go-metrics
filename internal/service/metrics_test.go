@@ -13,7 +13,7 @@ import (
 
 func TestMetricsService_UpdateMetric(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage)
+	service := NewMetricsService(storage, nil)
 
 	tests := []struct {
 		name        string
@@ -55,9 +55,42 @@ func TestMetricsService_UpdateMetric(t *testing.T) {
 	}
 }
 
+func TestMetricsService_Ping(t *testing.T) {
+	tests := []struct {
+		name         string
+		postgresRepo repository.MetricsRepository
+		expectError  bool
+	}{
+		{
+			name:         "ping with PostgreSQL repository",
+			postgresRepo: repository.NewMemStorage(zaptest.NewLogger(t).Sugar()),
+			expectError:  false,
+		},
+		{
+			name:         "ping without PostgreSQL repository",
+			postgresRepo: nil,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metricsRepo := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
+			svc := NewMetricsService(metricsRepo, tt.postgresRepo)
+
+			err := svc.Ping()
+			if tt.expectError {
+				require.Error(t, err, "Expected error when PostgreSQL repository is not configured")
+			} else {
+				require.NoError(t, err, "Ping should succeed when PostgreSQL repository is configured")
+			}
+		})
+	}
+}
+
 func TestMetricsService_CounterAccumulation(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage)
+	service := NewMetricsService(storage, nil)
 
 	const metricName = "test_counter"
 	const metricValue = "5"
@@ -75,7 +108,7 @@ func TestMetricsService_CounterAccumulation(t *testing.T) {
 
 func TestMetricsService_GaugeReplacement(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage)
+	service := NewMetricsService(storage, nil)
 
 	const metricName = "test_gauge"
 	const metricValue = "10.5"
@@ -96,7 +129,7 @@ func TestMetricsService_GaugeReplacement(t *testing.T) {
 
 func TestMetricsService_GetAllMetrics(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage)
+	service := NewMetricsService(storage, nil)
 
 	expectedValue := float64(10.5)
 	expectedDelta := int64(10)
@@ -127,7 +160,7 @@ func TestMetricsService_GetAllMetrics(t *testing.T) {
 
 func TestMetricsService_GetMetric(t *testing.T) {
 	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
-	service := NewMetricsService(storage)
+	service := NewMetricsService(storage, nil)
 	expectedValue := float64(10.5)
 
 	expectedMetric := &model.Metrics{MType: model.Gauge, ID: "test_gauge", Value: &expectedValue}

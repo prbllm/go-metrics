@@ -7,4 +7,5 @@ type Service interface {
 	UpdateMetricByStruct(metric *model.Metrics) error
 	GetMetric(metricType, metricName string) (*model.Metrics, error)
 	GetAllMetrics() ([]*model.Metrics, error)
+	Ping() error
 }

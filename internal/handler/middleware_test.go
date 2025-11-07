@@ -40,7 +40,7 @@ func TestLoggingMiddleware(t *testing.T) {
 func TestMiddlewareWithHandlers(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	storage := repository.NewMemStorage(logger)
-	metricsService := service.NewMetricsService(storage)
+	metricsService := service.NewMetricsService(storage, nil)
 	handlers := NewHandlers(metricsService, logger)
 
 	router := chi.NewRouter()

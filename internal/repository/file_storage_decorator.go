@@ -49,6 +49,10 @@ func (f *FileStorageDecorator) GetAllMetrics() []*model.Metrics {
 	return f.memStorage.GetAllMetrics()
 }
 
+func (f *FileStorageDecorator) Ping() error {
+	return f.memStorage.Ping()
+}
+
 func (f *FileStorageDecorator) SaveToFile() error {
 	metrics := f.memStorage.GetAllMetrics()
 	json, err := json.Marshal(metrics)

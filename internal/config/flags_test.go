@@ -101,14 +101,24 @@ func TestParseServerFlags(t *testing.T) {
 			},
 		},
 		{
+			name: "Database DSN flag",
+			args: []string{"-d", "postgres://user:pass@localhost/db"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.DatabaseDSN = "postgres://user:pass@localhost/db"
+				return cfg
+			},
+		},
+		{
 			name: "Server flags combined",
-			args: []string{"-a", "localhost:8081", "-i", "60", "-f", "/tmp/metrics.json", "-r", "true"},
+			args: []string{"-a", "localhost:8081", "-i", "60", "-f", "/tmp/metrics.json", "-r", "true", "-d", "postgres://user:pass@localhost/db"},
 			expected: func() Config {
 				cfg := *defaultConfig()
 				cfg.ServerHost = "localhost:8081"
 				cfg.StoreInterval = 60 * time.Second
 				cfg.FileStoragePath = "/tmp/metrics.json"
 				cfg.Restore = true
+				cfg.DatabaseDSN = "postgres://user:pass@localhost/db"
 				return cfg
 			},
 		},
@@ -129,6 +139,7 @@ func TestParseServerFlags(t *testing.T) {
 			require.Equal(t, expected.StoreInterval, got.StoreInterval, "StoreInterval is not equal to expected")
 			require.Equal(t, expected.FileStoragePath, got.FileStoragePath, "FileStoragePath is not equal to expected")
 			require.Equal(t, expected.Restore, got.Restore, "Restore is not equal to expected")
+			require.Equal(t, expected.DatabaseDSN, got.DatabaseDSN, "DatabaseDSN is not equal to expected")
 		})
 	}
 }
