@@ -25,6 +25,6 @@ func main() {
 	}
 
 	collector := agent.NewRuntimeMetricsCollector(appLogger)
-	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.GetConfig().ServerHost+config.UpdatePath, config.GetConfig().AgentPollInterval, config.GetConfig().AgentReportInterval, appLogger)
+	agent := agent.NewAgent(http.DefaultClient, collector, appLogger)
 	agent.Start(context.Background())
 }

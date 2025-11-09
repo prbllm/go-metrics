@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/prbllm/go-metrics/internal/compression"
@@ -16,34 +15,29 @@ import (
 )
 
 type Agent struct {
-	client         *http.Client
-	collector      *RuntimeMetricsCollector
-	route          string
-	pollInterval   time.Duration
-	reportInterval time.Duration
-	logger         logger.Logger
+	client    *http.Client
+	collector *RuntimeMetricsCollector
+	logger    logger.Logger
 }
 
-func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, route string, pollInterval time.Duration, reportInterval time.Duration, logger logger.Logger) *Agent {
+func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, logger logger.Logger) *Agent {
 	return &Agent{
-		client:         client,
-		collector:      collector,
-		route:          route,
-		pollInterval:   pollInterval,
-		reportInterval: reportInterval,
-		logger:         logger,
+		client:    client,
+		collector: collector,
+		logger:    logger,
 	}
 }
 
 func (a *Agent) Start(context context.Context) {
-	a.logger.Infof("Starting agent with route: %s and agent poll interval: %s and agent report interval: %s", a.route, a.pollInterval, a.reportInterval)
+	cfg := config.GetConfig()
+	a.logger.Infof("Starting agent with server host: %s and agent poll interval: %s and agent report interval: %s", cfg.ServerHost, cfg.AgentPollInterval, cfg.AgentReportInterval)
 	if a.collector == nil {
 
 		a.logger.Error("Collector is nil")
 		return
 	}
 
-	collectCounter := int(a.reportInterval / a.pollInterval)
+	collectCounter := int(cfg.AgentReportInterval / cfg.AgentPollInterval)
 	for {
 		select {
 		case <-context.Done():
@@ -61,7 +55,7 @@ func (a *Agent) Start(context context.Context) {
 			default:
 			}
 			metrics = a.collector.Collect()
-			time.Sleep(a.pollInterval)
+			time.Sleep(cfg.AgentPollInterval)
 		}
 		err := a.SendMetricsJSON(metrics)
 		if err != nil {
@@ -82,7 +76,7 @@ func (a *Agent) sendMetrics(metrics []model.Metrics) error {
 			continue
 		}
 		a.logger.Debugf("Sending metric: %s to url: %s", metric.String(), url)
-		response, err := a.client.Post(url, config.ContentTypeTextPlain, strings.NewReader(""))
+		response, err := a.client.Post(url, config.ContentTypeTextPlain, bytes.NewBufferString(""))
 		if err != nil {
 			a.logger.Errorf("Error sending metric: %v. Skipping...", err)
 			continue
@@ -108,11 +102,8 @@ func (a *Agent) generateURL(metric model.Metrics) (string, error) {
 		value = fmt.Sprintf("%f", *metric.Value)
 	}
 
-	url := a.route
-	if url[len(url)-1] != '/' {
-		url += "/"
-	}
-	return fmt.Sprintf("%s%s/%s/%s", url, metric.MType, metric.ID, value), nil
+	baseURL := a.getBaseURL()
+	return fmt.Sprintf("%s%s/%s/%s/%s", baseURL, config.UpdatePath, metric.MType, metric.ID, value), nil
 }
 
 func (a *Agent) compressJSON(jsonData []byte) ([]byte, error) {
@@ -141,7 +132,8 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 		a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
 			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
-		req, err := http.NewRequest(http.MethodPost, a.route, bytes.NewBuffer(compressedData))
+		updateURL := a.getBaseURL() + config.UpdatePath
+		req, err := http.NewRequest(http.MethodPost, updateURL, bytes.NewBuffer(compressedData))
 		if err != nil {
 			a.logger.Errorf("Error creating request: %v. Skipping...", err)
 			continue
@@ -160,4 +152,59 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 		response.Body.Close()
 	}
 	return nil
+}
+
+func (a *Agent) SendMetricsBatchJSON(metrics []model.Metrics) error {
+	if a.client == nil {
+		return fmt.Errorf("client is nil")
+	}
+
+	if len(metrics) == 0 {
+		a.logger.Debug("Skipping empty metrics batch")
+		return nil
+	}
+
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("error marshaling metrics batch to JSON: %w", err)
+	}
+
+	compressedData, err := a.compressJSON(jsonData)
+	if err != nil {
+		return fmt.Errorf("error compressing JSON data: %w", err)
+	}
+
+	stats := compression.GetCompressionStats(jsonData, compressedData)
+	a.logger.Infof("Sending batch of %d metrics via compressed JSON", len(metrics))
+	a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
+		stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
+
+	batchURL := a.getBatchURL()
+	req, err := http.NewRequest(http.MethodPost, batchURL, bytes.NewBuffer(compressedData))
+	if err != nil {
+		return fmt.Errorf("error creating batch request: %w", err)
+	}
+
+	req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+	req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+	response, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending metrics batch: %w", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", response.StatusCode)
+	}
+
+	a.logger.Debugf("Batch Response: %s", response.Status)
+	return nil
+}
+func (a *Agent) getBaseURL() string {
+	return fmt.Sprintf("http://%s", config.GetConfig().ServerHost)
+}
+
+func (a *Agent) getBatchURL() string {
+	return a.getBaseURL() + config.UpdatesPath
 }

@@ -61,6 +61,8 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 
 	p.logger.Debugf("PostgresRepository.UpdateMetric called for metric: %s", metric.String())
 
+	ctx := context.Background()
+
 	switch metric.MType {
 	case model.Counter:
 		if metric.Delta == nil {
@@ -75,7 +77,13 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 				delta = metrics.delta + EXCLUDED.delta,
 				updated_at = CURRENT_TIMESTAMP
 		`
-		_, err := p.db.Exec(query, metric.ID, metric.MType, *metric.Delta)
+		stmt, err := p.db.PrepareContext(ctx, query)
+		if err != nil {
+			return fmt.Errorf("failed to prepare counter statement: %w", err)
+		}
+		defer stmt.Close()
+
+		_, err = stmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Delta)
 		if err != nil {
 			return fmt.Errorf("failed to update counter metric: %w", err)
 		}
@@ -93,7 +101,13 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 				value = EXCLUDED.value,
 				updated_at = CURRENT_TIMESTAMP
 		`
-		_, err := p.db.Exec(query, metric.ID, metric.MType, *metric.Value)
+		stmt, err := p.db.PrepareContext(ctx, query)
+		if err != nil {
+			return fmt.Errorf("failed to prepare gauge statement: %w", err)
+		}
+		defer stmt.Close()
+
+		_, err = stmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Value)
 		if err != nil {
 			return fmt.Errorf("failed to update gauge metric: %w", err)
 		}
@@ -210,17 +224,25 @@ func (p *PostgresRepository) GetMetric(metric *model.Metrics) (*model.Metrics, e
 
 	p.logger.Debugf("PostgresRepository.GetMetric called for metric: %s", metric.String())
 
+	ctx := context.Background()
+
 	query := `
 		SELECT id, type, delta, value
 		FROM metrics
 		WHERE id = $1 AND type = $2
 	`
 
+	stmt, err := p.db.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare get metric statement: %w", err)
+	}
+	defer stmt.Close()
+
 	var id, mType string
 	var delta sql.NullInt64
 	var value sql.NullFloat64
 
-	err := p.db.QueryRow(query, metric.ID, metric.MType).Scan(&id, &mType, &delta, &value)
+	err = stmt.QueryRowContext(ctx, metric.ID, metric.MType).Scan(&id, &mType, &delta, &value)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("metric %s:%s not found", metric.MType, metric.ID)
@@ -247,13 +269,22 @@ func (p *PostgresRepository) GetMetric(metric *model.Metrics) (*model.Metrics, e
 func (p *PostgresRepository) GetAllMetrics() []*model.Metrics {
 	p.logger.Debugf("PostgresRepository.GetAllMetrics called")
 
+	ctx := context.Background()
+
 	query := `
 		SELECT id, type, delta, value
 		FROM metrics
 		ORDER BY id, type
 	`
 
-	rows, err := p.db.Query(query)
+	stmt, err := p.db.PrepareContext(ctx, query)
+	if err != nil {
+		p.logger.Errorf("Failed to prepare get all metrics statement: %v", err)
+		return []*model.Metrics{}
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx)
 	if err != nil {
 		p.logger.Errorf("Failed to query all metrics: %v", err)
 		return []*model.Metrics{}
