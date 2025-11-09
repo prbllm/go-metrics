@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"github.com/prbllm/go-metrics/internal/model"
@@ -45,7 +46,7 @@ func TestMemStorage_UpdateMetricsBatch(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			testStorage := NewMemStorage(zaptest.NewLogger(t).Sugar())
-			err := testStorage.UpdateMetricsBatch(test.metrics)
+			err := testStorage.UpdateMetricsBatch(context.Background(), test.metrics)
 			if test.expectError {
 				require.Error(t, err, "Expected error")
 			} else {
@@ -66,16 +67,16 @@ func TestMemStorage_UpdateMetricsBatch_CounterAccumulation(t *testing.T) {
 	metrics1 := []*model.Metrics{
 		{ID: metricName, MType: model.Counter, Delta: &delta1},
 	}
-	err := storage.UpdateMetricsBatch(metrics1)
+	err := storage.UpdateMetricsBatch(context.Background(), metrics1)
 	require.NoError(t, err, "First batch update failed")
 
 	metrics2 := []*model.Metrics{
 		{ID: metricName, MType: model.Counter, Delta: &delta2},
 	}
-	err = storage.UpdateMetricsBatch(metrics2)
+	err = storage.UpdateMetricsBatch(context.Background(), metrics2)
 	require.NoError(t, err, "Second batch update failed")
 
-	metric, err := storage.GetMetric(&model.Metrics{ID: metricName, MType: model.Counter})
+	metric, err := storage.GetMetric(context.Background(), &model.Metrics{ID: metricName, MType: model.Counter})
 	require.NoError(t, err, "Get failed")
 	require.Equal(t, expectedDelta, *metric.Delta, "Delta should accumulate")
 }
@@ -90,17 +91,17 @@ func TestMemStorage_UpdateMetricsBatch_MultipleMetrics(t *testing.T) {
 		{ID: "gauge2", MType: model.Gauge, Value: func() *float64 { v := 5.67; return &v }()},
 	}
 
-	err := storage.UpdateMetricsBatch(metrics)
+	err := storage.UpdateMetricsBatch(context.Background(), metrics)
 	require.NoError(t, err, "UpdateMetricsBatch should succeed")
 
-	allMetrics := storage.GetAllMetrics()
+	allMetrics := storage.GetAllMetrics(context.Background())
 	require.Equal(t, 4, len(allMetrics), "Should have 4 metrics")
 
-	counter1, err := storage.GetMetric(&model.Metrics{ID: "counter1", MType: model.Counter})
+	counter1, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "counter1", MType: model.Counter})
 	require.NoError(t, err)
 	require.Equal(t, int64(10), *counter1.Delta)
 
-	gauge1, err := storage.GetMetric(&model.Metrics{ID: "gauge1", MType: model.Gauge})
+	gauge1, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "gauge1", MType: model.Gauge})
 	require.NoError(t, err)
 	require.Equal(t, 3.14, *gauge1.Value)
 }

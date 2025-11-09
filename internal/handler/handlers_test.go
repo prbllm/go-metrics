@@ -25,7 +25,9 @@ func setupTestRouter(handlers *Handlers) *chi.Mux {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
 			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
-		r.Post(config.UpdatesPath, handlers.UpdateMetricsBatchHandler)
+		r.Route(config.UpdatesPath, func(r chi.Router) {
+			r.Post("/", handlers.UpdateMetricsBatchHandler)
+		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByURL)
 			r.Post("/", handlers.GetValueHandlerByJSON)
@@ -92,7 +94,7 @@ func TestUpdateHandler(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if test.expectedStatusCode == http.StatusOK {
-				mockService.EXPECT().UpdateMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockService.EXPECT().UpdateMetric(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
@@ -160,7 +162,7 @@ func TestGetAllMetricsHandler(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if test.method == http.MethodGet && test.expectedStatusCode == http.StatusOK {
-				mockService.EXPECT().GetAllMetrics().Return([]*model.Metrics{}, nil).AnyTimes()
+				mockService.EXPECT().GetAllMetrics(gomock.Any()).Return([]*model.Metrics{}, nil).AnyTimes()
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
@@ -225,7 +227,7 @@ func TestGetValueHandler(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if test.method == http.MethodGet && test.expectedStatusCode == http.StatusNotFound {
-				mockService.EXPECT().GetMetric(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found")).AnyTimes()
+				mockService.EXPECT().GetMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("not found")).AnyTimes()
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
@@ -322,7 +324,7 @@ func TestUpdateMetricHandlerByJSON(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if test.expectedStatusCode == http.StatusOK {
-				mockService.EXPECT().UpdateMetricByStruct(gomock.Any()).Return(nil).AnyTimes()
+				mockService.EXPECT().UpdateMetricByStruct(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
@@ -421,7 +423,7 @@ func TestGetValueHandlerByJSON(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if test.expectedStatusCode == http.StatusNotFound {
-				mockService.EXPECT().GetMetric(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found")).AnyTimes()
+				mockService.EXPECT().GetMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("not found")).AnyTimes()
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
@@ -483,7 +485,7 @@ func TestPingHandler(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if tt.method == http.MethodGet {
-				mockService.EXPECT().Ping().Return(tt.pingError).Times(1)
+				mockService.EXPECT().Ping(gomock.Any()).Return(tt.pingError).Times(1)
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
@@ -534,7 +536,7 @@ func TestUpdateMetricsBatchHandler(t *testing.T) {
 			requestBody:        `[{"id":"counter1","type":"counter","delta":10},{"id":"gauge1","type":"gauge","value":3.14}]`,
 			expectedStatusCode: http.StatusOK,
 			setupMock: func(mockService *mocks.MockService) {
-				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any()).Return(nil).Times(1)
+				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 		},
 		{
@@ -577,7 +579,7 @@ func TestUpdateMetricsBatchHandler(t *testing.T) {
 			requestBody:        `[{"id":"counter1","type":"counter","delta":10}]`,
 			expectedStatusCode: http.StatusInternalServerError,
 			setupMock: func(mockService *mocks.MockService) {
-				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any()).Return(errors.New("service error")).Times(1)
+				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any(), gomock.Any()).Return(errors.New("service error")).Times(1)
 			},
 		},
 		{
@@ -588,7 +590,7 @@ func TestUpdateMetricsBatchHandler(t *testing.T) {
 			requestBody:        `[{"id":"counter1","type":"counter"}]`,
 			expectedStatusCode: http.StatusInternalServerError,
 			setupMock: func(mockService *mocks.MockService) {
-				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any()).Return(errors.New("validation failed")).Times(1)
+				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any(), gomock.Any()).Return(errors.New("validation failed")).Times(1)
 			},
 		},
 	}

@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	model "github.com/prbllm/go-metrics/internal/model"
@@ -41,87 +42,87 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // GetAllMetrics mocks base method.
-func (m *MockService) GetAllMetrics() ([]*model.Metrics, error) {
+func (m *MockService) GetAllMetrics(ctx context.Context) ([]*model.Metrics, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllMetrics")
+	ret := m.ctrl.Call(m, "GetAllMetrics", ctx)
 	ret0, _ := ret[0].([]*model.Metrics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAllMetrics indicates an expected call of GetAllMetrics.
-func (mr *MockServiceMockRecorder) GetAllMetrics() *gomock.Call {
+func (mr *MockServiceMockRecorder) GetAllMetrics(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMetrics", reflect.TypeOf((*MockService)(nil).GetAllMetrics))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMetrics", reflect.TypeOf((*MockService)(nil).GetAllMetrics), ctx)
 }
 
 // GetMetric mocks base method.
-func (m *MockService) GetMetric(metricType, metricName string) (*model.Metrics, error) {
+func (m *MockService) GetMetric(ctx context.Context, metricType, metricName string) (*model.Metrics, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMetric", metricType, metricName)
+	ret := m.ctrl.Call(m, "GetMetric", ctx, metricType, metricName)
 	ret0, _ := ret[0].(*model.Metrics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMetric indicates an expected call of GetMetric.
-func (mr *MockServiceMockRecorder) GetMetric(metricType, metricName any) *gomock.Call {
+func (mr *MockServiceMockRecorder) GetMetric(ctx, metricType, metricName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetric", reflect.TypeOf((*MockService)(nil).GetMetric), metricType, metricName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetric", reflect.TypeOf((*MockService)(nil).GetMetric), ctx, metricType, metricName)
 }
 
 // Ping mocks base method.
-func (m *MockService) Ping() error {
+func (m *MockService) Ping(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ping")
+	ret := m.ctrl.Call(m, "Ping", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Ping indicates an expected call of Ping.
-func (mr *MockServiceMockRecorder) Ping() *gomock.Call {
+func (mr *MockServiceMockRecorder) Ping(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockService)(nil).Ping))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockService)(nil).Ping), ctx)
 }
 
 // UpdateMetric mocks base method.
-func (m *MockService) UpdateMetric(metricType, metricName, metricValue string) error {
+func (m *MockService) UpdateMetric(ctx context.Context, metricType, metricName, metricValue string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMetric", metricType, metricName, metricValue)
+	ret := m.ctrl.Call(m, "UpdateMetric", ctx, metricType, metricName, metricValue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMetric indicates an expected call of UpdateMetric.
-func (mr *MockServiceMockRecorder) UpdateMetric(metricType, metricName, metricValue any) *gomock.Call {
+func (mr *MockServiceMockRecorder) UpdateMetric(ctx, metricType, metricName, metricValue any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetric", reflect.TypeOf((*MockService)(nil).UpdateMetric), metricType, metricName, metricValue)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetric", reflect.TypeOf((*MockService)(nil).UpdateMetric), ctx, metricType, metricName, metricValue)
 }
 
 // UpdateMetricByStruct mocks base method.
-func (m *MockService) UpdateMetricByStruct(metric *model.Metrics) error {
+func (m *MockService) UpdateMetricByStruct(ctx context.Context, metric *model.Metrics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMetricByStruct", metric)
+	ret := m.ctrl.Call(m, "UpdateMetricByStruct", ctx, metric)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMetricByStruct indicates an expected call of UpdateMetricByStruct.
-func (mr *MockServiceMockRecorder) UpdateMetricByStruct(metric any) *gomock.Call {
+func (mr *MockServiceMockRecorder) UpdateMetricByStruct(ctx, metric any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetricByStruct", reflect.TypeOf((*MockService)(nil).UpdateMetricByStruct), metric)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetricByStruct", reflect.TypeOf((*MockService)(nil).UpdateMetricByStruct), ctx, metric)
 }
 
 // UpdateMetricsBatchByStruct mocks base method.
-func (m *MockService) UpdateMetricsBatchByStruct(metrics []*model.Metrics) error {
+func (m *MockService) UpdateMetricsBatchByStruct(ctx context.Context, metrics []*model.Metrics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMetricsBatchByStruct", metrics)
+	ret := m.ctrl.Call(m, "UpdateMetricsBatchByStruct", ctx, metrics)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMetricsBatchByStruct indicates an expected call of UpdateMetricsBatchByStruct.
-func (mr *MockServiceMockRecorder) UpdateMetricsBatchByStruct(metrics any) *gomock.Call {
+func (mr *MockServiceMockRecorder) UpdateMetricsBatchByStruct(ctx, metrics any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetricsBatchByStruct", reflect.TypeOf((*MockService)(nil).UpdateMetricsBatchByStruct), metrics)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetricsBatchByStruct", reflect.TypeOf((*MockService)(nil).UpdateMetricsBatchByStruct), ctx, metrics)
 }

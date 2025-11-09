@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -34,13 +35,13 @@ func TestFileStorageDecorator_UpdateMetricsBatch(t *testing.T) {
 	cfg := config.GetConfig()
 	cfg.StoreInterval = 0
 
-	err = decorator.UpdateMetricsBatch(metrics)
+	err = decorator.UpdateMetricsBatch(context.Background(), metrics)
 	require.NoError(t, err, "UpdateMetricsBatch should succeed")
 
 	_, err = os.Stat(tmpFile.Name())
 	require.NoError(t, err, "File should exist")
 
-	counter1, err := decorator.GetMetric(&model.Metrics{ID: "counter1", MType: model.Counter})
+	counter1, err := decorator.GetMetric(context.Background(), &model.Metrics{ID: "counter1", MType: model.Counter})
 	require.NoError(t, err)
 	require.Equal(t, int64(10), *counter1.Delta)
 }
@@ -55,6 +56,6 @@ func TestFileStorageDecorator_UpdateMetricsBatch_NilSlice(t *testing.T) {
 	memStorage := NewMemStorage(logger)
 	decorator := NewFileStorageDecorator(memStorage, tmpFile.Name(), logger)
 
-	err = decorator.UpdateMetricsBatch(nil)
+	err = decorator.UpdateMetricsBatch(context.Background(), nil)
 	require.Error(t, err, "Should return error for nil slice")
 }

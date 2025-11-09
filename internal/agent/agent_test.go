@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -73,7 +74,7 @@ func TestAgentSendMetrics(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	err := agent.sendMetrics(metrics)
+	err := agent.sendMetrics(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics")
 }
 
@@ -91,7 +92,7 @@ func TestAgentSendMetricsJSON(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	err := agent.SendMetricsJSON(metrics)
+	err := agent.SendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics via JSON")
 }
 
@@ -109,7 +110,7 @@ func TestAgentSendMetricsJSONWithNilClient(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	err := agent.SendMetricsJSON(metrics)
+	err := agent.SendMetricsJSON(context.Background(), metrics)
 	require.Error(t, err, "Expected error for nil client")
 	require.Contains(t, err.Error(), "client is nil")
 }
@@ -156,7 +157,7 @@ func TestAgentSendMetricsBatchJSON(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	_ = agent.SendMetricsBatchJSON(metrics)
+	_ = agent.SendMetricsBatchJSON(context.Background(), metrics)
 }
 
 func TestAgentSendMetricsBatchJSONWithNilClient(t *testing.T) {
@@ -175,7 +176,7 @@ func TestAgentSendMetricsBatchJSONWithNilClient(t *testing.T) {
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
 
-	err := agent.SendMetricsBatchJSON(metrics)
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.Error(t, err, "Expected error for nil client")
 	require.Contains(t, err.Error(), "client is nil")
 }
@@ -190,7 +191,7 @@ func TestAgentSendMetricsBatchJSONEmptyBatch(t *testing.T) {
 
 	metrics := []model.Metrics{}
 
-	err := agent.SendMetricsBatchJSON(metrics)
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Empty batch should not return error")
 }
 

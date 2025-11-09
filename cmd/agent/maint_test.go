@@ -78,7 +78,7 @@ func TestAgentJSONIntegration(t *testing.T) {
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
 	metrics := collector.Collect()
-	err := agent.SendMetricsJSON(metrics)
+	err := agent.SendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics via JSON")
 
 	require.NotEmpty(t, receivedMetrics, "Should have received some metrics")
@@ -133,7 +133,7 @@ func TestAgentBatchJSONIntegration(t *testing.T) {
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
 	metrics := collector.Collect()
-	err := agent.SendMetricsBatchJSON(metrics)
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics batch via JSON")
 
 	require.NotEmpty(t, receivedMetrics, "Should have received some metrics")
@@ -174,7 +174,7 @@ func TestAgentBatchJSONWrongStatusCode(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(metrics)
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.Error(t, err, "Expected error for wrong status code")
 	require.Contains(t, err.Error(), "unexpected status code")
 }

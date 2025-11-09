@@ -15,9 +15,14 @@ import (
 type PostgresRepository struct {
 	db     *sql.DB
 	logger logger.Logger
+
+	updateCounterStmt *sql.Stmt
+	updateGaugeStmt   *sql.Stmt
+	getMetricStmt     *sql.Stmt
+	getAllMetricsStmt *sql.Stmt
 }
 
-func NewPostgresRepository(dsn string, logger logger.Logger) (*PostgresRepository, error) {
+func NewPostgresRepository(ctx context.Context, dsn string, logger logger.Logger) (*PostgresRepository, error) {
 	if dsn == "" {
 		return nil, fmt.Errorf("database DSN cannot be empty")
 	}
@@ -40,13 +45,93 @@ func NewPostgresRepository(dsn string, logger logger.Logger) (*PostgresRepositor
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	return &PostgresRepository{
+	repo := &PostgresRepository{
 		db:     db,
 		logger: logger,
-	}, nil
+	}
+
+	if err := repo.initPreparedStatements(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to initialize prepared statements: %w", err)
+	}
+
+	return repo, nil
+}
+
+func (p *PostgresRepository) initPreparedStatements(ctx context.Context) error {
+	counterQuery := `
+		INSERT INTO metrics (id, type, delta, value, updated_at)
+		VALUES ($1, $2, $3, NULL, CURRENT_TIMESTAMP)
+		ON CONFLICT (id, type)
+		DO UPDATE SET
+			delta = metrics.delta + EXCLUDED.delta,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	stmt, err := p.db.PrepareContext(ctx, counterQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare counter statement: %w", err)
+	}
+	p.updateCounterStmt = stmt
+
+	gaugeQuery := `
+		INSERT INTO metrics (id, type, delta, value, updated_at)
+		VALUES ($1, $2, NULL, $3, CURRENT_TIMESTAMP)
+		ON CONFLICT (id, type)
+		DO UPDATE SET
+			value = EXCLUDED.value,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	stmt, err = p.db.PrepareContext(ctx, gaugeQuery)
+	if err != nil {
+		p.updateCounterStmt.Close()
+		return fmt.Errorf("failed to prepare gauge statement: %w", err)
+	}
+	p.updateGaugeStmt = stmt
+
+	getMetricQuery := `
+		SELECT id, type, delta, value
+		FROM metrics
+		WHERE id = $1 AND type = $2
+	`
+	stmt, err = p.db.PrepareContext(ctx, getMetricQuery)
+	if err != nil {
+		p.updateCounterStmt.Close()
+		p.updateGaugeStmt.Close()
+		return fmt.Errorf("failed to prepare get metric statement: %w", err)
+	}
+	p.getMetricStmt = stmt
+
+	getAllMetricsQuery := `
+		SELECT id, type, delta, value
+		FROM metrics
+		ORDER BY id, type
+	`
+	stmt, err = p.db.PrepareContext(ctx, getAllMetricsQuery)
+	if err != nil {
+		p.updateCounterStmt.Close()
+		p.updateGaugeStmt.Close()
+		p.getMetricStmt.Close()
+		return fmt.Errorf("failed to prepare get all metrics statement: %w", err)
+	}
+	p.getAllMetricsStmt = stmt
+
+	return nil
 }
 
 func (p *PostgresRepository) Close() error {
+	if p.updateCounterStmt != nil {
+		p.updateCounterStmt.Close()
+	}
+	if p.updateGaugeStmt != nil {
+		p.updateGaugeStmt.Close()
+	}
+	if p.getMetricStmt != nil {
+		p.getMetricStmt.Close()
+	}
+	if p.getAllMetricsStmt != nil {
+		p.getAllMetricsStmt.Close()
+	}
+
 	if p.db != nil {
 		p.logger.Info("Closing PostgreSQL database connection")
 		return p.db.Close()
@@ -54,14 +139,12 @@ func (p *PostgresRepository) Close() error {
 	return nil
 }
 
-func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
+func (p *PostgresRepository) UpdateMetric(ctx context.Context, metric *model.Metrics) error {
 	if metric == nil {
 		return fmt.Errorf("metric is nil")
 	}
 
 	p.logger.Debugf("PostgresRepository.UpdateMetric called for metric: %s", metric.String())
-
-	ctx := context.Background()
 
 	switch metric.MType {
 	case model.Counter:
@@ -69,21 +152,7 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 			return fmt.Errorf("delta is required for counter metric")
 		}
 
-		query := `
-			INSERT INTO metrics (id, type, delta, value, updated_at)
-			VALUES ($1, $2, $3, NULL, CURRENT_TIMESTAMP)
-			ON CONFLICT (id, type)
-			DO UPDATE SET
-				delta = metrics.delta + EXCLUDED.delta,
-				updated_at = CURRENT_TIMESTAMP
-		`
-		stmt, err := p.db.PrepareContext(ctx, query)
-		if err != nil {
-			return fmt.Errorf("failed to prepare counter statement: %w", err)
-		}
-		defer stmt.Close()
-
-		_, err = stmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Delta)
+		_, err := p.updateCounterStmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Delta)
 		if err != nil {
 			return fmt.Errorf("failed to update counter metric: %w", err)
 		}
@@ -93,21 +162,7 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 			return fmt.Errorf("value is required for gauge metric")
 		}
 
-		query := `
-			INSERT INTO metrics (id, type, delta, value, updated_at)
-			VALUES ($1, $2, NULL, $3, CURRENT_TIMESTAMP)
-			ON CONFLICT (id, type)
-			DO UPDATE SET
-				value = EXCLUDED.value,
-				updated_at = CURRENT_TIMESTAMP
-		`
-		stmt, err := p.db.PrepareContext(ctx, query)
-		if err != nil {
-			return fmt.Errorf("failed to prepare gauge statement: %w", err)
-		}
-		defer stmt.Close()
-
-		_, err = stmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Value)
+		_, err := p.updateGaugeStmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Value)
 		if err != nil {
 			return fmt.Errorf("failed to update gauge metric: %w", err)
 		}
@@ -119,7 +174,7 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 	return nil
 }
 
-func (p *PostgresRepository) UpdateMetricsBatch(metrics []*model.Metrics) error {
+func (p *PostgresRepository) UpdateMetricsBatch(ctx context.Context, metrics []*model.Metrics) error {
 	if metrics == nil {
 		return fmt.Errorf("metrics are nil")
 	}
@@ -130,7 +185,6 @@ func (p *PostgresRepository) UpdateMetricsBatch(metrics []*model.Metrics) error 
 
 	p.logger.Debugf("PostgresRepository.UpdateMetricsBatch called for %d metrics", len(metrics))
 
-	ctx := context.Background()
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -217,32 +271,18 @@ func (p *PostgresRepository) UpdateMetricsBatch(metrics []*model.Metrics) error 
 	return nil
 }
 
-func (p *PostgresRepository) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
+func (p *PostgresRepository) GetMetric(ctx context.Context, metric *model.Metrics) (*model.Metrics, error) {
 	if metric == nil {
 		return nil, fmt.Errorf("metric is nil")
 	}
 
 	p.logger.Debugf("PostgresRepository.GetMetric called for metric: %s", metric.String())
 
-	ctx := context.Background()
-
-	query := `
-		SELECT id, type, delta, value
-		FROM metrics
-		WHERE id = $1 AND type = $2
-	`
-
-	stmt, err := p.db.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare get metric statement: %w", err)
-	}
-	defer stmt.Close()
-
 	var id, mType string
 	var delta sql.NullInt64
 	var value sql.NullFloat64
 
-	err = stmt.QueryRowContext(ctx, metric.ID, metric.MType).Scan(&id, &mType, &delta, &value)
+	err := p.getMetricStmt.QueryRowContext(ctx, metric.ID, metric.MType).Scan(&id, &mType, &delta, &value)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("metric %s:%s not found", metric.MType, metric.ID)
@@ -266,25 +306,10 @@ func (p *PostgresRepository) GetMetric(metric *model.Metrics) (*model.Metrics, e
 	return result, nil
 }
 
-func (p *PostgresRepository) GetAllMetrics() []*model.Metrics {
+func (p *PostgresRepository) GetAllMetrics(ctx context.Context) []*model.Metrics {
 	p.logger.Debugf("PostgresRepository.GetAllMetrics called")
 
-	ctx := context.Background()
-
-	query := `
-		SELECT id, type, delta, value
-		FROM metrics
-		ORDER BY id, type
-	`
-
-	stmt, err := p.db.PrepareContext(ctx, query)
-	if err != nil {
-		p.logger.Errorf("Failed to prepare get all metrics statement: %v", err)
-		return []*model.Metrics{}
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := p.getAllMetricsStmt.QueryContext(ctx)
 	if err != nil {
 		p.logger.Errorf("Failed to query all metrics: %v", err)
 		return []*model.Metrics{}
@@ -328,9 +353,9 @@ func (p *PostgresRepository) GetAllMetrics() []*model.Metrics {
 	return metrics
 }
 
-func (p *PostgresRepository) Ping() error {
+func (p *PostgresRepository) Ping(ctx context.Context) error {
 	if p.db == nil {
 		return fmt.Errorf("database connection is nil")
 	}
-	return p.db.Ping()
+	return p.db.PingContext(ctx)
 }

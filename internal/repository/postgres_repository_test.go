@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -41,7 +42,7 @@ func setupTestRepository(t *testing.T) (*PostgresRepository, func()) {
 	}
 
 	logger := zaptest.NewLogger(t).Sugar()
-	repo, err := NewPostgresRepository(dsn, logger)
+	repo, err := NewPostgresRepository(context.Background(), dsn, logger)
 	if err != nil {
 		t.Skipf("Skipping test: failed to create repository: %v", err)
 		return nil, func() {}
@@ -79,10 +80,10 @@ func TestPostgresRepository_UpdateMetric_Counter(t *testing.T) {
 		Delta: &delta,
 	}
 
-	err := repo.UpdateMetric(metric)
+	err := repo.UpdateMetric(context.Background(), metric)
 	require.NoError(t, err, "Failed to update counter metric")
 
-	retrieved, err := repo.GetMetric(metric)
+	retrieved, err := repo.GetMetric(context.Background(), metric)
 	require.NoError(t, err, "Failed to get metric")
 	require.NotNil(t, retrieved.Delta, "Delta should not be nil")
 	require.Equal(t, int64(10), *retrieved.Delta, "Delta should be 10")
@@ -102,7 +103,7 @@ func TestPostgresRepository_UpdateMetric_CounterAccumulation(t *testing.T) {
 		Delta: &delta1,
 	}
 
-	err := repo.UpdateMetric(metric1)
+	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err, "Failed to update counter metric first time")
 
 	delta2 := int64(7)
@@ -112,10 +113,10 @@ func TestPostgresRepository_UpdateMetric_CounterAccumulation(t *testing.T) {
 		Delta: &delta2,
 	}
 
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err, "Failed to update counter metric second time")
 
-	retrieved, err := repo.GetMetric(metric1)
+	retrieved, err := repo.GetMetric(context.Background(), metric1)
 	require.NoError(t, err, "Failed to get metric")
 	require.NotNil(t, retrieved.Delta, "Delta should not be nil")
 	require.Equal(t, int64(12), *retrieved.Delta, "Delta should be accumulated (5+7=12)")
@@ -135,10 +136,10 @@ func TestPostgresRepository_UpdateMetric_Gauge(t *testing.T) {
 		Value: &value,
 	}
 
-	err := repo.UpdateMetric(metric)
+	err := repo.UpdateMetric(context.Background(), metric)
 	require.NoError(t, err, "Failed to update gauge metric")
 
-	retrieved, err := repo.GetMetric(metric)
+	retrieved, err := repo.GetMetric(context.Background(), metric)
 	require.NoError(t, err, "Failed to get metric")
 	require.NotNil(t, retrieved.Value, "Value should not be nil")
 	require.Equal(t, 3.14, *retrieved.Value, "Value should be 3.14")
@@ -158,7 +159,7 @@ func TestPostgresRepository_UpdateMetric_GaugeReplacement(t *testing.T) {
 		Value: &value1,
 	}
 
-	err := repo.UpdateMetric(metric1)
+	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err, "Failed to update gauge metric first time")
 
 	value2 := 20.7
@@ -168,10 +169,10 @@ func TestPostgresRepository_UpdateMetric_GaugeReplacement(t *testing.T) {
 		Value: &value2,
 	}
 
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err, "Failed to update gauge metric second time")
 
-	retrieved, err := repo.GetMetric(metric1)
+	retrieved, err := repo.GetMetric(context.Background(), metric1)
 	require.NoError(t, err, "Failed to get metric")
 	require.NotNil(t, retrieved.Value, "Value should not be nil")
 	require.Equal(t, 20.7, *retrieved.Value, "Value should be replaced (20.7, not accumulated)")
@@ -189,7 +190,7 @@ func TestPostgresRepository_GetMetric_NotFound(t *testing.T) {
 		MType: model.Counter,
 	}
 
-	_, err := repo.GetMetric(metric)
+	_, err := repo.GetMetric(context.Background(), metric)
 	require.Error(t, err, "Should return error for nonexistent metric")
 	require.Contains(t, err.Error(), "not found", "Error should indicate metric not found")
 }
@@ -201,7 +202,7 @@ func TestPostgresRepository_GetAllMetrics_Empty(t *testing.T) {
 	}
 	defer cleanup()
 
-	metrics := repo.GetAllMetrics()
+	metrics := repo.GetAllMetrics(context.Background())
 	require.NotNil(t, metrics, "Metrics should not be nil")
 	require.Empty(t, metrics, "Metrics should be empty")
 }
@@ -219,7 +220,7 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta1,
 	}
-	err := repo.UpdateMetric(metric1)
+	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err)
 
 	delta2 := int64(20)
@@ -228,7 +229,7 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta2,
 	}
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err)
 
 	value1 := 1.5
@@ -237,10 +238,10 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 		MType: model.Gauge,
 		Value: &value1,
 	}
-	err = repo.UpdateMetric(metric3)
+	err = repo.UpdateMetric(context.Background(), metric3)
 	require.NoError(t, err)
 
-	metrics := repo.GetAllMetrics()
+	metrics := repo.GetAllMetrics(context.Background())
 	require.NotNil(t, metrics, "Metrics should not be nil")
 	require.Len(t, metrics, 3, "Should have 3 metrics")
 
@@ -262,7 +263,7 @@ func TestPostgresRepository_Ping(t *testing.T) {
 	}
 	defer cleanup()
 
-	err := repo.Ping()
+	err := repo.Ping(context.Background())
 	require.NoError(t, err, "Ping should succeed")
 }
 
@@ -273,7 +274,7 @@ func TestPostgresRepository_UpdateMetric_InvalidInput(t *testing.T) {
 	}
 	defer cleanup()
 
-	err := repo.UpdateMetric(nil)
+	err := repo.UpdateMetric(context.Background(), nil)
 	require.Error(t, err, "Should return error for nil metric")
 
 	metric := &model.Metrics{
@@ -281,7 +282,7 @@ func TestPostgresRepository_UpdateMetric_InvalidInput(t *testing.T) {
 		MType: model.Counter,
 		Delta: nil,
 	}
-	err = repo.UpdateMetric(metric)
+	err = repo.UpdateMetric(context.Background(), metric)
 	require.Error(t, err, "Should return error for counter without delta")
 
 	metric2 := &model.Metrics{
@@ -289,14 +290,14 @@ func TestPostgresRepository_UpdateMetric_InvalidInput(t *testing.T) {
 		MType: model.Gauge,
 		Value: nil,
 	}
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.Error(t, err, "Should return error for gauge without value")
 
 	metric3 := &model.Metrics{
 		ID:    "test",
 		MType: "unknown",
 	}
-	err = repo.UpdateMetric(metric3)
+	err = repo.UpdateMetric(context.Background(), metric3)
 	require.Error(t, err, "Should return error for unknown metric type")
 }
 
@@ -307,6 +308,6 @@ func TestPostgresRepository_GetMetric_NilInput(t *testing.T) {
 	}
 	defer cleanup()
 
-	_, err := repo.GetMetric(nil)
+	_, err := repo.GetMetric(context.Background(), nil)
 	require.Error(t, err, "Should return error for nil metric")
 }

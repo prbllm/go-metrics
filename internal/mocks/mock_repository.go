@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	model "github.com/prbllm/go-metrics/internal/model"
@@ -41,72 +42,72 @@ func (m *MockMetricsRepository) EXPECT() *MockMetricsRepositoryMockRecorder {
 }
 
 // GetAllMetrics mocks base method.
-func (m *MockMetricsRepository) GetAllMetrics() []*model.Metrics {
+func (m *MockMetricsRepository) GetAllMetrics(ctx context.Context) []*model.Metrics {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllMetrics")
+	ret := m.ctrl.Call(m, "GetAllMetrics", ctx)
 	ret0, _ := ret[0].([]*model.Metrics)
 	return ret0
 }
 
 // GetAllMetrics indicates an expected call of GetAllMetrics.
-func (mr *MockMetricsRepositoryMockRecorder) GetAllMetrics() *gomock.Call {
+func (mr *MockMetricsRepositoryMockRecorder) GetAllMetrics(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMetrics", reflect.TypeOf((*MockMetricsRepository)(nil).GetAllMetrics))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMetrics", reflect.TypeOf((*MockMetricsRepository)(nil).GetAllMetrics), ctx)
 }
 
 // GetMetric mocks base method.
-func (m *MockMetricsRepository) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
+func (m *MockMetricsRepository) GetMetric(ctx context.Context, metric *model.Metrics) (*model.Metrics, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMetric", metric)
+	ret := m.ctrl.Call(m, "GetMetric", ctx, metric)
 	ret0, _ := ret[0].(*model.Metrics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMetric indicates an expected call of GetMetric.
-func (mr *MockMetricsRepositoryMockRecorder) GetMetric(metric any) *gomock.Call {
+func (mr *MockMetricsRepositoryMockRecorder) GetMetric(ctx, metric any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetric", reflect.TypeOf((*MockMetricsRepository)(nil).GetMetric), metric)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetric", reflect.TypeOf((*MockMetricsRepository)(nil).GetMetric), ctx, metric)
 }
 
 // Ping mocks base method.
-func (m *MockMetricsRepository) Ping() error {
+func (m *MockMetricsRepository) Ping(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ping")
+	ret := m.ctrl.Call(m, "Ping", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Ping indicates an expected call of Ping.
-func (mr *MockMetricsRepositoryMockRecorder) Ping() *gomock.Call {
+func (mr *MockMetricsRepositoryMockRecorder) Ping(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockMetricsRepository)(nil).Ping))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockMetricsRepository)(nil).Ping), ctx)
 }
 
 // UpdateMetric mocks base method.
-func (m *MockMetricsRepository) UpdateMetric(metric *model.Metrics) error {
+func (m *MockMetricsRepository) UpdateMetric(ctx context.Context, metric *model.Metrics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMetric", metric)
+	ret := m.ctrl.Call(m, "UpdateMetric", ctx, metric)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMetric indicates an expected call of UpdateMetric.
-func (mr *MockMetricsRepositoryMockRecorder) UpdateMetric(metric any) *gomock.Call {
+func (mr *MockMetricsRepositoryMockRecorder) UpdateMetric(ctx, metric any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetric", reflect.TypeOf((*MockMetricsRepository)(nil).UpdateMetric), metric)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetric", reflect.TypeOf((*MockMetricsRepository)(nil).UpdateMetric), ctx, metric)
 }
 
 // UpdateMetricsBatch mocks base method.
-func (m *MockMetricsRepository) UpdateMetricsBatch(metrics []*model.Metrics) error {
+func (m *MockMetricsRepository) UpdateMetricsBatch(ctx context.Context, metrics []*model.Metrics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMetricsBatch", metrics)
+	ret := m.ctrl.Call(m, "UpdateMetricsBatch", ctx, metrics)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMetricsBatch indicates an expected call of UpdateMetricsBatch.
-func (mr *MockMetricsRepositoryMockRecorder) UpdateMetricsBatch(metrics any) *gomock.Call {
+func (mr *MockMetricsRepositoryMockRecorder) UpdateMetricsBatch(ctx, metrics any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetricsBatch", reflect.TypeOf((*MockMetricsRepository)(nil).UpdateMetricsBatch), metrics)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetricsBatch", reflect.TypeOf((*MockMetricsRepository)(nil).UpdateMetricsBatch), ctx, metrics)
 }

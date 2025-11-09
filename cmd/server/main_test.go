@@ -61,7 +61,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
 
-		metric, err := storage.GetMetric(&model.Metrics{MType: model.Counter, ID: metricName})
+		metric, err := storage.GetMetric(context.Background(), &model.Metrics{MType: model.Counter, ID: metricName})
 		require.NoError(t, err, "Expected metric to be saved")
 
 		expectedValue, err := strconv.ParseInt(metricValue, 10, 64)
@@ -85,7 +85,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
 
-		metric, err := storage.GetMetric(&model.Metrics{MType: model.Gauge, ID: metricName})
+		metric, err := storage.GetMetric(context.Background(), &model.Metrics{MType: model.Gauge, ID: metricName})
 		require.NoError(t, err, "Expected metric to be saved")
 		expectedValue, err := strconv.ParseFloat(metricValue, 64)
 		require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 
 		resp2.Body.Close()
 
-		metric, err = storage.GetMetric(&model.Metrics{MType: model.Gauge, ID: metricName})
+		metric, err = storage.GetMetric(context.Background(), &model.Metrics{MType: model.Gauge, ID: metricName})
 		require.NoError(t, err, "Expected metric to be saved")
 		expectedValue, err = strconv.ParseFloat(metricValue2, 64)
 		require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 
 		resp2.Body.Close()
 
-		metric, err := storage.GetMetric(&model.Metrics{MType: model.Counter, ID: metricName})
+		metric, err := storage.GetMetric(context.Background(), &model.Metrics{MType: model.Counter, ID: metricName})
 		require.NoError(t, err, "Expected metric to be saved")
 
 		expectedValue, err := strconv.ParseInt(metricValue, 10, 64)
@@ -258,7 +258,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
 
-		savedMetric, err := storage.GetMetric(&model.Metrics{MType: model.Counter, ID: metricName})
+		savedMetric, err := storage.GetMetric(context.Background(), &model.Metrics{MType: model.Counter, ID: metricName})
 		require.NoError(t, err, "Expected metric to be saved")
 		require.Equal(t, metricValue, *savedMetric.Delta, "Metric value is not equal to expected")
 	})
@@ -286,7 +286,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
 
-		savedMetric, err := storage.GetMetric(&model.Metrics{MType: model.Gauge, ID: metricName})
+		savedMetric, err := storage.GetMetric(context.Background(), &model.Metrics{MType: model.Gauge, ID: metricName})
 		require.NoError(t, err, "Expected metric to be saved")
 		require.Equal(t, metricValue, *savedMetric.Value, "Metric value is not equal to expected")
 	})
@@ -398,7 +398,7 @@ func TestHTTPAPIIntegration(t *testing.T) {
 		}
 
 		for _, metric := range testMetrics {
-			err := storage.UpdateMetric(&metric)
+			err := storage.UpdateMetric(context.Background(), &metric)
 			require.NoError(t, err, "Failed to add test metric")
 		}
 
@@ -543,17 +543,17 @@ func (h *FileStorageTestHelper) GetStorage() *repository.MemStorage {
 }
 
 func (h *FileStorageTestHelper) AddMetric(metric *model.Metrics) {
-	err := h.decorator.UpdateMetric(metric)
+	err := h.decorator.UpdateMetric(context.Background(), metric)
 	require.NoError(h.t, err, "Failed to update metric")
 }
 
 func (h *FileStorageTestHelper) SaveToFile() {
-	err := h.decorator.SaveToFile()
+	err := h.decorator.SaveToFile(context.Background())
 	require.NoError(h.t, err, "Failed to save to file")
 }
 
 func (h *FileStorageTestHelper) LoadFromFile() {
-	err := h.decorator.LoadFromFile()
+	err := h.decorator.LoadFromFile(context.Background())
 	require.NoError(h.t, err, "Failed to load from file")
 }
 
@@ -572,7 +572,7 @@ func (h *FileStorageTestHelper) AssertJSONFormat(fileContent []byte) []*model.Me
 }
 
 func (h *FileStorageTestHelper) AssertMetricExists(metricType, metricID string, expectedValue interface{}) {
-	metric, err := h.storage.GetMetric(&model.Metrics{MType: metricType, ID: metricID})
+	metric, err := h.storage.GetMetric(context.Background(), &model.Metrics{MType: metricType, ID: metricID})
 	require.NoError(h.t, err, "Failed to get metric")
 
 	switch metricType {
@@ -620,7 +620,7 @@ func TestFileStorageIntegration(t *testing.T) {
 
 		newHelper.LoadFromFile()
 
-		allMetrics := newHelper.GetStorage().GetAllMetrics()
+		allMetrics := newHelper.GetStorage().GetAllMetrics(context.Background())
 		require.Len(t, allMetrics, 4, "Should have 4 metrics")
 
 		newHelper.AssertMetricExists(model.Counter, "counter1", int64(10))
@@ -638,10 +638,10 @@ func TestFileStorageIntegration(t *testing.T) {
 			Delta: func() *int64 { v := int64(1); return &v }(),
 		}
 
-		err := fileDecorator.UpdateMetric(metric)
+		err := fileDecorator.UpdateMetric(context.Background(), metric)
 		require.NoError(t, err, "UpdateMetric should succeed even if file save fails")
 
-		err = fileDecorator.SaveToFile()
+		err = fileDecorator.SaveToFile(context.Background())
 		require.Error(t, err, "SaveToFile should fail with invalid path")
 	})
 
@@ -679,7 +679,7 @@ func TestFileStorageIntegration(t *testing.T) {
 		require.Equal(t, "test_config_sync_counter", savedMetrics[0].ID)
 		require.Equal(t, int64(300), *savedMetrics[0].Delta)
 
-		allMetrics := helper.GetStorage().GetAllMetrics()
+		allMetrics := helper.GetStorage().GetAllMetrics(context.Background())
 		require.Len(t, allMetrics, 1, "Should have one metric in memory")
 		require.Equal(t, "test_config_sync_counter", allMetrics[0].ID)
 	})
@@ -716,7 +716,7 @@ func TestFileStorageIntegration(t *testing.T) {
 
 		helper.AddMetric(metric)
 
-		allMetrics := helper.GetStorage().GetAllMetrics()
+		allMetrics := helper.GetStorage().GetAllMetrics(context.Background())
 		require.Len(t, allMetrics, 1, "Should have one metric in memory")
 
 		time.Sleep(1500 * time.Millisecond)
@@ -729,5 +729,324 @@ func TestFileStorageIntegration(t *testing.T) {
 		require.Len(t, savedMetrics, 1, "Should have one metric in file")
 		require.Equal(t, "test_config_async_counter", savedMetrics[0].ID)
 		require.Equal(t, int64(400), *savedMetrics[0].Delta)
+	})
+}
+
+func TestBatchUpdatesIntegration(t *testing.T) {
+	t.Run("batch update with memory storage", func(t *testing.T) {
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+		handlers := handler.NewHandlers(metricsService, logger)
+
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		batchMetrics := []model.Metrics{
+			{ID: "batch_counter_1", MType: model.Counter, Delta: func() *int64 { v := int64(100); return &v }()},
+			{ID: "batch_counter_2", MType: model.Counter, Delta: func() *int64 { v := int64(200); return &v }()},
+			{ID: "batch_gauge_1", MType: model.Gauge, Value: func() *float64 { v := 3.14159; return &v }()},
+			{ID: "batch_gauge_2", MType: model.Gauge, Value: func() *float64 { v := 2.71828; return &v }()},
+		}
+
+		jsonData, err := json.Marshal(batchMetrics)
+		require.NoError(t, err, "Failed to marshal batch metrics")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		allMetrics := storage.GetAllMetrics(context.Background())
+		require.Len(t, allMetrics, 4, "Should have 4 metrics in storage")
+
+		counter1, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "batch_counter_1", MType: model.Counter})
+		require.NoError(t, err, "Failed to get counter1")
+		require.Equal(t, int64(100), *counter1.Delta, "Counter1 delta should match")
+
+		counter2, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "batch_counter_2", MType: model.Counter})
+		require.NoError(t, err, "Failed to get counter2")
+		require.Equal(t, int64(200), *counter2.Delta, "Counter2 delta should match")
+
+		gauge1, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "batch_gauge_1", MType: model.Gauge})
+		require.NoError(t, err, "Failed to get gauge1")
+		require.Equal(t, 3.14159, *gauge1.Value, "Gauge1 value should match")
+
+		gauge2, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "batch_gauge_2", MType: model.Gauge})
+		require.NoError(t, err, "Failed to get gauge2")
+		require.Equal(t, 2.71828, *gauge2.Value, "Gauge2 value should match")
+	})
+
+	t.Run("batch update with file storage", func(t *testing.T) {
+		helper := NewFileStorageTestHelper(t, "test_batch_file_*.json")
+		defer helper.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		metricsService := service.NewMetricsService(helper.GetDecorator())
+		handlers := handler.NewHandlers(metricsService, logger)
+
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		batchMetrics := []model.Metrics{
+			{ID: "file_batch_counter", MType: model.Counter, Delta: func() *int64 { v := int64(500); return &v }()},
+			{ID: "file_batch_gauge", MType: model.Gauge, Value: func() *float64 { v := 9.87654; return &v }()},
+		}
+
+		jsonData, err := json.Marshal(batchMetrics)
+		require.NoError(t, err, "Failed to marshal batch metrics")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		allMetrics := helper.GetStorage().GetAllMetrics(context.Background())
+		require.Len(t, allMetrics, 2, "Should have 2 metrics in storage")
+
+		helper.AssertMetricExists(model.Counter, "file_batch_counter", int64(500))
+		helper.AssertMetricExists(model.Gauge, "file_batch_gauge", 9.87654)
+
+		helper.SaveToFile()
+		fileContent := helper.AssertFileExists()
+		savedMetrics := helper.AssertJSONFormat(fileContent)
+		require.Len(t, savedMetrics, 2, "Should have 2 metrics in file")
+
+		foundCounter := false
+		foundGauge := false
+		for _, m := range savedMetrics {
+			if m.ID == "file_batch_counter" && m.MType == model.Counter {
+				require.Equal(t, int64(500), *m.Delta, "Counter delta in file should match")
+				foundCounter = true
+			}
+			if m.ID == "file_batch_gauge" && m.MType == model.Gauge {
+				require.Equal(t, 9.87654, *m.Value, "Gauge value in file should match")
+				foundGauge = true
+			}
+		}
+		require.True(t, foundCounter, "Counter should be found in file")
+		require.True(t, foundGauge, "Gauge should be found in file")
+	})
+
+	t.Run("batch update with counter accumulation", func(t *testing.T) {
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+		handlers := handler.NewHandlers(metricsService, logger)
+
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		batch1 := []model.Metrics{
+			{ID: "accum_counter", MType: model.Counter, Delta: func() *int64 { v := int64(50); return &v }()},
+		}
+
+		jsonData1, err := json.Marshal(batch1)
+		require.NoError(t, err, "Failed to marshal first batch")
+
+		req1, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData1))
+		require.NoError(t, err, "Failed to create first request")
+		req1.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp1, err := http.DefaultClient.Do(req1)
+		require.NoError(t, err, "Failed to send first request")
+		resp1.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp1.StatusCode, "Expected status 200 for first batch")
+
+		batch2 := []model.Metrics{
+			{ID: "accum_counter", MType: model.Counter, Delta: func() *int64 { v := int64(75); return &v }()},
+		}
+
+		jsonData2, err := json.Marshal(batch2)
+		require.NoError(t, err, "Failed to marshal second batch")
+
+		req2, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData2))
+		require.NoError(t, err, "Failed to create second request")
+		req2.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp2, err := http.DefaultClient.Do(req2)
+		require.NoError(t, err, "Failed to send second request")
+		resp2.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp2.StatusCode, "Expected status 200 for second batch")
+
+		counter, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "accum_counter", MType: model.Counter})
+		require.NoError(t, err, "Failed to get accumulated counter")
+		require.Equal(t, int64(125), *counter.Delta, "Counter should accumulate: 50 + 75 = 125")
+	})
+
+	t.Run("batch update with gzip compression", func(t *testing.T) {
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+		handlers := handler.NewHandlers(metricsService, logger)
+
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		batchMetrics := []model.Metrics{
+			{ID: "gzip_batch_counter", MType: model.Counter, Delta: func() *int64 { v := int64(999); return &v }()},
+			{ID: "gzip_batch_gauge", MType: model.Gauge, Value: func() *float64 { v := 1.23456; return &v }()},
+		}
+
+		jsonData, err := json.Marshal(batchMetrics)
+		require.NoError(t, err, "Failed to marshal batch metrics")
+
+		compressedData, err := compression.CompressData(jsonData)
+		require.NoError(t, err, "Failed to compress data")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(compressedData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		allMetrics := storage.GetAllMetrics(context.Background())
+		require.Len(t, allMetrics, 2, "Should have 2 metrics in storage")
+
+		counter, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "gzip_batch_counter", MType: model.Counter})
+		require.NoError(t, err, "Failed to get counter")
+		require.Equal(t, int64(999), *counter.Delta, "Counter delta should match")
+
+		gauge, err := storage.GetMetric(context.Background(), &model.Metrics{ID: "gzip_batch_gauge", MType: model.Gauge})
+		require.NoError(t, err, "Failed to get gauge")
+		require.Equal(t, 1.23456, *gauge.Value, "Gauge value should match")
+	})
+
+	t.Run("batch update with PostgreSQL", func(t *testing.T) {
+		dsn := os.Getenv("DATABASE_DSN")
+		if dsn == "" {
+			dsn = "postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable"
+		}
+
+		logger := zaptest.NewLogger(t).Sugar()
+		postgresRepo, err := repository.NewPostgresRepository(context.Background(), dsn, logger)
+		if err != nil {
+			t.Skipf("Skipping PostgreSQL test: database not available: %v", err)
+			return
+		}
+		defer postgresRepo.Close()
+
+		metricsService := service.NewMetricsService(postgresRepo)
+		handlers := handler.NewHandlers(metricsService, logger)
+
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		batchMetrics := []model.Metrics{
+			{ID: "pg_batch_counter_1", MType: model.Counter, Delta: func() *int64 { v := int64(1000); return &v }()},
+			{ID: "pg_batch_counter_2", MType: model.Counter, Delta: func() *int64 { v := int64(2000); return &v }()},
+			{ID: "pg_batch_gauge_1", MType: model.Gauge, Value: func() *float64 { v := 5.55555; return &v }()},
+			{ID: "pg_batch_gauge_2", MType: model.Gauge, Value: func() *float64 { v := 6.66666; return &v }()},
+		}
+
+		jsonData, err := json.Marshal(batchMetrics)
+		require.NoError(t, err, "Failed to marshal batch metrics")
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err, "Failed to create request")
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err, "Failed to send request")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200, got %d", resp.StatusCode)
+
+		allMetrics := postgresRepo.GetAllMetrics(context.Background())
+		require.GreaterOrEqual(t, len(allMetrics), 4, "Should have at least 4 metrics in database")
+
+		counter1, err := postgresRepo.GetMetric(context.Background(), &model.Metrics{ID: "pg_batch_counter_1", MType: model.Counter})
+		require.NoError(t, err, "Failed to get counter1 from database")
+		require.Equal(t, int64(1000), *counter1.Delta, "Counter1 delta should match")
+
+		counter2, err := postgresRepo.GetMetric(context.Background(), &model.Metrics{ID: "pg_batch_counter_2", MType: model.Counter})
+		require.NoError(t, err, "Failed to get counter2 from database")
+		require.Equal(t, int64(2000), *counter2.Delta, "Counter2 delta should match")
+
+		gauge1, err := postgresRepo.GetMetric(context.Background(), &model.Metrics{ID: "pg_batch_gauge_1", MType: model.Gauge})
+		require.NoError(t, err, "Failed to get gauge1 from database")
+		require.Equal(t, 5.55555, *gauge1.Value, "Gauge1 value should match")
+
+		gauge2, err := postgresRepo.GetMetric(context.Background(), &model.Metrics{ID: "pg_batch_gauge_2", MType: model.Gauge})
+		require.NoError(t, err, "Failed to get gauge2 from database")
+		require.Equal(t, 6.66666, *gauge2.Value, "Gauge2 value should match")
+
+		batch2 := []model.Metrics{
+			{ID: "pg_batch_counter_1", MType: model.Counter, Delta: func() *int64 { v := int64(500); return &v }()},
+		}
+
+		jsonData2, err := json.Marshal(batch2)
+		require.NoError(t, err, "Failed to marshal second batch")
+
+		req2, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData2))
+		require.NoError(t, err, "Failed to create second request")
+		req2.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+
+		resp2, err := http.DefaultClient.Do(req2)
+		require.NoError(t, err, "Failed to send second request")
+		resp2.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp2.StatusCode, "Expected status 200 for second batch")
+
+		counter1Updated, err := postgresRepo.GetMetric(context.Background(), &model.Metrics{ID: "pg_batch_counter_1", MType: model.Counter})
+		require.NoError(t, err, "Failed to get updated counter1 from database")
+		require.Equal(t, int64(1500), *counter1Updated.Delta, "Counter1 should accumulate: 1000 + 500 = 1500")
 	})
 }

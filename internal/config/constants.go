@@ -13,6 +13,7 @@ const (
 	DefaultFileStoragePath     = "metrics.json"
 	DefaultRestore             = false
 	DefaultDatabaseDSN         = ""
+	HTTPRequestTimeout         = 10 * time.Second
 )
 
 const (

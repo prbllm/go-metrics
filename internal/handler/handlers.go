@@ -26,17 +26,17 @@ func NewHandlers(service service.Service, logger logger.Logger) *Handlers {
 
 func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		h.logger.Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	ctx := r.Context()
 
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 	metricValue := chi.URLParam(r, "metricValue")
 
 	if metricType == "" || metricName == "" || metricValue == "" {
-		h.logger.Errorf("Invalid path")
 		http.NotFound(w, r)
 		return
 	}
@@ -54,7 +54,7 @@ func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Reque
 	h.logger.Infof("Received metric: Type=%s, Name=%s, Value=%s", metricType, metricName, metricValue)
 
 	if h.service != nil {
-		if err := h.service.UpdateMetric(metricType, metricName, metricValue); err != nil {
+		if err := h.service.UpdateMetric(ctx, metricType, metricName, metricValue); err != nil {
 			h.logger.Errorf("Error updating metric: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
@@ -69,10 +69,11 @@ func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Reque
 
 func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		h.logger.Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	ctx := r.Context()
 
 	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
 		http.Error(w, "Invalid content type", http.StatusBadRequest)
@@ -92,7 +93,7 @@ func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Requ
 
 	h.logger.Infof("Received metric: %s", metric.String())
 
-	if err := h.service.UpdateMetricByStruct(&metric); err != nil {
+	if err := h.service.UpdateMetricByStruct(ctx, &metric); err != nil {
 		h.logger.Errorf("Error updating metric: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -102,13 +103,18 @@ func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debugf("UpdateMetricsBatchHandler called: Method=%s, URL=%s, Path=%s", r.Method, r.URL.String(), r.URL.Path)
+
 	if r.Method != http.MethodPost {
-		h.logger.Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
+	ctx := r.Context()
+
+	contentType := r.Header.Get(config.ContentTypeHeader)
+	h.logger.Debugf("Content-Type header: %s", contentType)
+	if contentType != config.ContentTypeJSON {
 		http.Error(w, "Invalid content type", http.StatusBadRequest)
 		return
 	}
@@ -119,6 +125,8 @@ func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	h.logger.Debugf("Successfully decoded %d metrics from request body", len(metrics))
+
 	if len(metrics) == 0 {
 		http.Error(w, "Empty metrics batch", http.StatusBadRequest)
 		return
@@ -126,7 +134,7 @@ func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Requ
 
 	h.logger.Infof("Received batch of %d metrics", len(metrics))
 
-	if err := h.service.UpdateMetricsBatchByStruct(metrics); err != nil {
+	if err := h.service.UpdateMetricsBatchByStruct(ctx, metrics); err != nil {
 		h.logger.Errorf("Error updating metrics batch: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -141,12 +149,13 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) GetAllMetricsHandlerByURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		h.logger.Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	metrics, err := h.service.GetAllMetrics()
+	ctx := r.Context()
+
+	metrics, err := h.service.GetAllMetrics(ctx)
 	if err != nil {
 		h.logger.Errorf("Error getting metrics: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -184,23 +193,22 @@ func (h *Handlers) GetAllMetricsHandlerByURL(w http.ResponseWriter, r *http.Requ
 
 func (h *Handlers) GetValueHandlerByURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		h.logger.Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	ctx := r.Context()
 
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
 	if metricType == "" || metricName == "" {
-		h.logger.Errorf("Invalid path: Type=%s, Name=%s", metricType, metricName)
 		http.NotFound(w, r)
 		return
 	}
 
-	metric, err := h.service.GetMetric(metricType, metricName)
+	metric, err := h.service.GetMetric(ctx, metricType, metricName)
 	if metric == nil || err != nil {
-		h.logger.Errorf("Error getting metric: %v", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -219,10 +227,11 @@ func (h *Handlers) GetValueHandlerByURL(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		h.logger.Errorf("Method %s not allowed", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	ctx := r.Context()
 
 	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
 		http.Error(w, "Invalid content type", http.StatusBadRequest)
@@ -240,9 +249,8 @@ func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	metricLoaded, err := h.service.GetMetric(metric.MType, metric.ID)
+	metricLoaded, err := h.service.GetMetric(ctx, metric.MType, metric.ID)
 	if metricLoaded == nil || err != nil {
-		h.logger.Errorf("Error getting metric: %v", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -258,13 +266,15 @@ func (h *Handlers) PingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+
 	if h.service == nil {
 		h.logger.Error("Service is nil")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	if err := h.service.Ping(); err != nil {
+	if err := h.service.Ping(ctx); err != nil {
 		h.logger.Errorf("Database ping failed: %v", err)
 		http.Error(w, "Database unavailable", http.StatusInternalServerError)
 		return

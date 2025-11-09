@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/prbllm/go-metrics/internal/logger"
@@ -23,7 +24,7 @@ func (m *MemStorage) generateKey(metricType, name string) string {
 	return fmt.Sprintf("%s:%s", metricType, name)
 }
 
-func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
+func (m *MemStorage) UpdateMetric(ctx context.Context, metric *model.Metrics) error {
 	key := m.generateKey(metric.MType, metric.ID)
 
 	if metric.MType == model.Counter {
@@ -37,13 +38,13 @@ func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 	return nil
 }
 
-func (m *MemStorage) UpdateMetricsBatch(metrics []*model.Metrics) error {
+func (m *MemStorage) UpdateMetricsBatch(ctx context.Context, metrics []*model.Metrics) error {
 	if metrics == nil {
 		return fmt.Errorf("metrics are nil")
 	}
 
 	for _, metric := range metrics {
-		if err := m.UpdateMetric(metric); err != nil {
+		if err := m.UpdateMetric(ctx, metric); err != nil {
 			return fmt.Errorf("failed to update metric %s: %w", metric.String(), err)
 		}
 	}
@@ -52,7 +53,7 @@ func (m *MemStorage) UpdateMetricsBatch(metrics []*model.Metrics) error {
 	return nil
 }
 
-func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
+func (m *MemStorage) GetMetric(ctx context.Context, metric *model.Metrics) (*model.Metrics, error) {
 	if metric == nil {
 		return nil, fmt.Errorf("metric is nil")
 	}
@@ -66,7 +67,7 @@ func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
 	return val, nil
 }
 
-func (m *MemStorage) GetAllMetrics() []*model.Metrics {
+func (m *MemStorage) GetAllMetrics(ctx context.Context) []*model.Metrics {
 	metrics := make([]*model.Metrics, 0, len(m.metrics))
 	for _, metric := range m.metrics {
 		metrics = append(metrics, metric)
@@ -75,6 +76,6 @@ func (m *MemStorage) GetAllMetrics() []*model.Metrics {
 	return metrics
 }
 
-func (m *MemStorage) Ping() error {
+func (m *MemStorage) Ping(ctx context.Context) error {
 	return fmt.Errorf("not supported")
 }

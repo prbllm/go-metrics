@@ -57,26 +57,37 @@ func (a *Agent) Start(context context.Context) {
 			metrics = a.collector.Collect()
 			time.Sleep(cfg.AgentPollInterval)
 		}
-		err := a.SendMetricsJSON(metrics)
+		err := a.SendMetricsJSON(context, metrics)
 		if err != nil {
 			a.logger.Errorf("Error sending metrics: %v", err)
 		}
 	}
 }
 
-func (a *Agent) sendMetrics(metrics []model.Metrics) error {
+func (a *Agent) sendMetrics(ctx context.Context, metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
 	}
 
 	for _, metric := range metrics {
+		reqCtx, cancel := context.WithTimeout(ctx, config.HTTPRequestTimeout)
+
 		url, err := a.generateURL(metric)
 		if err != nil {
+			cancel()
 			a.logger.Warnf("Error generating url: %v. Skipping...", err)
 			continue
 		}
 		a.logger.Debugf("Sending metric: %s to url: %s", metric.String(), url)
-		response, err := a.client.Post(url, config.ContentTypeTextPlain, bytes.NewBufferString(""))
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewBufferString(""))
+		if err != nil {
+			cancel()
+			a.logger.Errorf("Error creating request: %v. Skipping...", err)
+			continue
+		}
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeTextPlain)
+		response, err := a.client.Do(req)
+		cancel()
 		if err != nil {
 			a.logger.Errorf("Error sending metric: %v. Skipping...", err)
 			continue
@@ -110,19 +121,23 @@ func (a *Agent) compressJSON(jsonData []byte) ([]byte, error) {
 	return compression.CompressData(jsonData)
 }
 
-func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
+func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
 	}
 	for _, metric := range metrics {
+		reqCtx, cancel := context.WithTimeout(ctx, config.HTTPRequestTimeout)
+
 		jsonData, err := json.Marshal(metric)
 		if err != nil {
+			cancel()
 			a.logger.Warnf("Error marshaling metric to JSON: %v. Skipping...", err)
 			continue
 		}
 
 		compressedData, err := a.compressJSON(jsonData)
 		if err != nil {
+			cancel()
 			a.logger.Warnf("Error compressing JSON data: %v. Skipping...", err)
 			continue
 		}
@@ -133,8 +148,9 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 		updateURL := a.getBaseURL() + config.UpdatePath
-		req, err := http.NewRequest(http.MethodPost, updateURL, bytes.NewBuffer(compressedData))
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, updateURL, bytes.NewBuffer(compressedData))
 		if err != nil {
+			cancel()
 			a.logger.Errorf("Error creating request: %v. Skipping...", err)
 			continue
 		}
@@ -143,6 +159,7 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 		req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
 
 		response, err := a.client.Do(req)
+		cancel()
 		if err != nil {
 			a.logger.Errorf("Error sending metric via JSON: %v. Skipping...", err)
 			continue
@@ -154,7 +171,7 @@ func (a *Agent) SendMetricsJSON(metrics []model.Metrics) error {
 	return nil
 }
 
-func (a *Agent) SendMetricsBatchJSON(metrics []model.Metrics) error {
+func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
 	}
@@ -163,6 +180,9 @@ func (a *Agent) SendMetricsBatchJSON(metrics []model.Metrics) error {
 		a.logger.Debug("Skipping empty metrics batch")
 		return nil
 	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, config.HTTPRequestTimeout)
+	defer cancel()
 
 	jsonData, err := json.Marshal(metrics)
 	if err != nil {
@@ -180,7 +200,7 @@ func (a *Agent) SendMetricsBatchJSON(metrics []model.Metrics) error {
 		stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 	batchURL := a.getBatchURL()
-	req, err := http.NewRequest(http.MethodPost, batchURL, bytes.NewBuffer(compressedData))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, batchURL, bytes.NewBuffer(compressedData))
 	if err != nil {
 		return fmt.Errorf("error creating batch request: %w", err)
 	}

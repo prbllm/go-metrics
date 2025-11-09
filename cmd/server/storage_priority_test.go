@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -122,7 +123,7 @@ func TestStoragePriority_CounterAccumulation_PostgreSQL(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta1,
 	}
-	err := repo.UpdateMetric(metric1)
+	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err)
 
 	delta2 := int64(7)
@@ -131,10 +132,10 @@ func TestStoragePriority_CounterAccumulation_PostgreSQL(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta2,
 	}
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err)
 
-	retrieved, err := repo.GetMetric(metric1)
+	retrieved, err := repo.GetMetric(context.Background(), metric1)
 	require.NoError(t, err)
 	require.NotNil(t, retrieved.Delta)
 	require.Equal(t, int64(12), *retrieved.Delta, "Counter should accumulate values (5+7=12)")
@@ -172,7 +173,7 @@ func TestStoragePriority_CounterAccumulation_FileStorage(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta1,
 	}
-	err := repo.UpdateMetric(metric1)
+	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err)
 
 	delta2 := int64(7)
@@ -181,10 +182,10 @@ func TestStoragePriority_CounterAccumulation_FileStorage(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta2,
 	}
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err)
 
-	retrieved, err := repo.GetMetric(metric1)
+	retrieved, err := repo.GetMetric(context.Background(), metric1)
 	require.NoError(t, err)
 	require.NotNil(t, retrieved.Delta)
 	require.Equal(t, int64(12), *retrieved.Delta, "Counter should accumulate values (5+7=12)")
@@ -208,7 +209,7 @@ func TestStoragePriority_CounterAccumulation_Memory(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta1,
 	}
-	err := repo.UpdateMetric(metric1)
+	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err)
 
 	delta2 := int64(7)
@@ -217,10 +218,10 @@ func TestStoragePriority_CounterAccumulation_Memory(t *testing.T) {
 		MType: model.Counter,
 		Delta: &delta2,
 	}
-	err = repo.UpdateMetric(metric2)
+	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err)
 
-	retrieved, err := repo.GetMetric(metric1)
+	retrieved, err := repo.GetMetric(context.Background(), metric1)
 	require.NoError(t, err)
 	require.NotNil(t, retrieved.Delta)
 	require.Equal(t, int64(12), *retrieved.Delta, "Counter should accumulate values (5+7=12)")
@@ -228,7 +229,7 @@ func TestStoragePriority_CounterAccumulation_Memory(t *testing.T) {
 
 func selectStorage(cfg *config.Config, logger logger.Logger) repository.MetricsRepository {
 	if cfg.DatabaseDSN != "" {
-		postgresRepo, err := repository.NewPostgresRepository(cfg.DatabaseDSN, logger)
+		postgresRepo, err := repository.NewPostgresRepository(context.Background(), cfg.DatabaseDSN, logger)
 		if err != nil {
 			logger.Errorf("Error creating PostgreSQL repository: %v", err)
 			logger.Warn("Falling back to file storage")

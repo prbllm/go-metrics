@@ -23,7 +23,7 @@ func createFileStorage(ctx context.Context, filePath string, restore bool, logge
 	fileDecorator := repository.NewFileStorageDecorator(storage, filePath, logger)
 
 	if restore {
-		if loadErr := fileDecorator.LoadFromFile(); loadErr != nil {
+		if loadErr := fileDecorator.LoadFromFile(ctx); loadErr != nil {
 			logger.Warnf("Error loading file: %v", loadErr)
 		} else {
 			logger.Info("Metrics loaded from file")
@@ -37,7 +37,7 @@ func createFileStorage(ctx context.Context, filePath string, restore bool, logge
 
 func createMetricsRepository(ctx context.Context, cfg *config.Config, appLogger logger.Logger) repository.MetricsRepository {
 	if cfg.DatabaseDSN != "" {
-		postgresRepo, err := repository.NewPostgresRepository(cfg.DatabaseDSN, appLogger)
+		postgresRepo, err := repository.NewPostgresRepository(ctx, cfg.DatabaseDSN, appLogger)
 		if err != nil {
 			appLogger.Errorf("Error creating PostgreSQL repository: %v", err)
 			appLogger.Warn("Falling back to file storage")
@@ -94,12 +94,16 @@ func main() {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
 			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
-		r.Post(config.UpdatesPath, handlers.UpdateMetricsBatchHandler)
+		r.Route(config.UpdatesPath, func(r chi.Router) {
+			r.Post("/", handlers.UpdateMetricsBatchHandler)
+		})
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByURL)
 			r.Post("/", handlers.GetValueHandlerByJSON)
 		})
 	})
+
+	router.NotFound(handlers.NotFoundHandler)
 
 	server := &http.Server{
 		Addr:    config.GetConfig().ServerHost,

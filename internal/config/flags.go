@@ -10,8 +10,9 @@ import (
 )
 
 func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorHandling, logger logger.Logger) *Config {
-	config := defaultConfig()
+	logger.Infof("Parsing flags for %s, flags: %v", flagsetName, args)
 
+	config := defaultConfig()
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
 
 	fs.StringVar(&config.ServerHost, ServerHostFlag, config.ServerHost, ServerHostDescription)

@@ -38,7 +38,10 @@ func LoggingMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 func GzipDecompressMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get(config.ContentEncodingHeader) == config.ContentEncodingGzip {
+			logger.Debugf("GzipDecompressMiddleware: Method=%s, URL=%s, Path=%s", r.Method, r.URL.String(), r.URL.Path)
+
+			contentEncoding := r.Header.Get(config.ContentEncodingHeader)
+			if contentEncoding == config.ContentEncodingGzip {
 				logger.Debug("Decompressing gzip request body")
 
 				decompressedBody, err := compression.DecompressReader(r.Body)
@@ -53,6 +56,9 @@ func GzipDecompressMiddleware(logger logger.Logger) func(http.Handler) http.Hand
 				r.Header.Del(config.ContentEncodingHeader)
 
 				logger.Debugf("Successfully decompressed %d bytes", len(decompressedBody))
+				logger.Debugf("Decompressed request body: %s", string(decompressedBody))
+			} else {
+				logger.Debugf("Request does not contain gzip encoding (Content-Encoding: %s), skipping decompression", contentEncoding)
 			}
 
 			if compression.SupportsGzip(r.Header.Get(config.AcceptEncodingHeader)) {

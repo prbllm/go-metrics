@@ -26,6 +26,15 @@ fi
 echo "🚀 Запуск автотестов для итераций 1-$ITERATION (как в CI)"
 echo "================================================"
 
+# Очищаем тестовую базу данных
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/cleanup_test_db.sh" ]; then
+    echo ""
+    # Используем || true, чтобы не останавливать процесс при ошибках очистки
+    "$SCRIPT_DIR/cleanup_test_db.sh" || true
+    echo ""
+fi
+
 # Собираем бинарники
 echo "📦 Сборка бинарников..."
 
