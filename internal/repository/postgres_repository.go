@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -101,6 +102,104 @@ func (p *PostgresRepository) UpdateMetric(metric *model.Metrics) error {
 		return fmt.Errorf("unknown metric type: %s", metric.MType)
 	}
 
+	return nil
+}
+
+func (p *PostgresRepository) UpdateMetricsBatch(metrics []*model.Metrics) error {
+	if metrics == nil {
+		return fmt.Errorf("metrics are nil")
+	}
+
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	p.logger.Debugf("PostgresRepository.UpdateMetricsBatch called for %d metrics", len(metrics))
+
+	ctx := context.Background()
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				p.logger.Errorf("Failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	counterQuery := `
+		INSERT INTO metrics (id, type, delta, value, updated_at)
+		VALUES ($1, $2, $3, NULL, CURRENT_TIMESTAMP)
+		ON CONFLICT (id, type)
+		DO UPDATE SET
+			delta = metrics.delta + EXCLUDED.delta,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	counterStmt, err := tx.PrepareContext(ctx, counterQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare counter statement: %w", err)
+	}
+	defer counterStmt.Close()
+
+	gaugeQuery := `
+		INSERT INTO metrics (id, type, delta, value, updated_at)
+		VALUES ($1, $2, NULL, $3, CURRENT_TIMESTAMP)
+		ON CONFLICT (id, type)
+		DO UPDATE SET
+			value = EXCLUDED.value,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	gaugeStmt, err := tx.PrepareContext(ctx, gaugeQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare gauge statement: %w", err)
+	}
+	defer gaugeStmt.Close()
+
+	for _, metric := range metrics {
+		if metric == nil {
+			err = fmt.Errorf("metric is nil in batch")
+			return err
+		}
+
+		switch metric.MType {
+		case model.Counter:
+			if metric.Delta == nil {
+				err = fmt.Errorf("delta is required for counter metric %s", metric.ID)
+				return err
+			}
+
+			_, execErr := counterStmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Delta)
+			if execErr != nil {
+				err = fmt.Errorf("failed to update counter metric %s: %w", metric.ID, execErr)
+				return err
+			}
+
+		case model.Gauge:
+			if metric.Value == nil {
+				err = fmt.Errorf("value is required for gauge metric %s", metric.ID)
+				return err
+			}
+
+			_, execErr := gaugeStmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Value)
+			if execErr != nil {
+				err = fmt.Errorf("failed to update gauge metric %s: %w", metric.ID, execErr)
+				return err
+			}
+
+		default:
+			err = fmt.Errorf("unknown metric type: %s for metric %s", metric.MType, metric.ID)
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	p.logger.Debugf("Successfully updated batch of %d metrics", len(metrics))
 	return nil
 }
 

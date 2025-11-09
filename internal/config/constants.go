@@ -16,10 +16,11 @@ const (
 )
 
 const (
-	ValuePath  = "/value"
-	UpdatePath = "/update"
-	CommonPath = "/"
-	PingPath   = "/ping"
+	ValuePath   = "/value"
+	UpdatePath  = "/update"
+	UpdatesPath = "/updates"
+	CommonPath  = "/"
+	PingPath    = "/ping"
 )
 
 const (

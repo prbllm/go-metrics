@@ -327,3 +327,128 @@ func TestMetricsService_UpdateMetric_Gauge_CallsRepositoryOnce(t *testing.T) {
 	err := service.UpdateMetric(model.Gauge, "test_gauge", "3.14")
 	require.NoError(t, err, "UpdateMetric should succeed")
 }
+
+func TestMetricsService_UpdateMetricsBatchByStruct(t *testing.T) {
+	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
+	service := NewMetricsService(storage)
+
+	tests := []struct {
+		name          string
+		metrics       []*model.Metrics
+		expectError   bool
+		expectedError string
+	}{
+		{
+			name: "valid batch with counter and gauge",
+			metrics: []*model.Metrics{
+				{ID: "counter1", MType: model.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
+				{ID: "gauge1", MType: model.Gauge, Value: func() *float64 { v := 3.14; return &v }()},
+			},
+			expectError: false,
+		},
+		{
+			name:        "nil metrics slice",
+			metrics:     nil,
+			expectError: true,
+		},
+		{
+			name:        "empty metrics slice",
+			metrics:     []*model.Metrics{},
+			expectError: false,
+		},
+		{
+			name: "invalid metric - missing delta for counter",
+			metrics: []*model.Metrics{
+				{ID: "counter1", MType: model.Counter, Delta: nil},
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid metric - missing value for gauge",
+			metrics: []*model.Metrics{
+				{ID: "gauge1", MType: model.Gauge, Value: nil},
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid metric type",
+			metrics: []*model.Metrics{
+				{ID: "invalid", MType: "invalid_type", Value: func() *float64 { v := 1.0; return &v }()},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := service.UpdateMetricsBatchByStruct(test.metrics)
+			if test.expectError {
+				require.Error(t, err, "Expected error")
+			} else {
+				require.NoError(t, err, "UpdateMetricsBatchByStruct should succeed")
+			}
+		})
+	}
+}
+
+func TestMetricsService_UpdateMetricsBatchByStruct_RepositoryCall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	metrics := []*model.Metrics{
+		{ID: "counter1", MType: model.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
+		{ID: "gauge1", MType: model.Gauge, Value: func() *float64 { v := 3.14; return &v }()},
+	}
+
+	mockRepo.EXPECT().UpdateMetricsBatch(metrics).Return(nil).Times(1)
+
+	err := service.UpdateMetricsBatchByStruct(metrics)
+	require.NoError(t, err, "UpdateMetricsBatchByStruct should succeed")
+}
+
+func TestMetricsService_UpdateMetricsBatchByStruct_RepositoryError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := mocks.NewMockMetricsRepository(ctrl)
+	service := NewMetricsService(mockRepo)
+
+	metrics := []*model.Metrics{
+		{ID: "counter1", MType: model.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
+	}
+
+	expectedError := errors.New("repository update failed")
+	mockRepo.EXPECT().UpdateMetricsBatch(metrics).Return(expectedError).Times(1)
+
+	err := service.UpdateMetricsBatchByStruct(metrics)
+	require.Error(t, err, "Expected error from repository")
+}
+
+func TestMetricsService_UpdateMetricsBatchByStruct_CounterAccumulation(t *testing.T) {
+	storage := repository.NewMemStorage(zaptest.NewLogger(t).Sugar())
+	service := NewMetricsService(storage)
+
+	const metricName = "test_counter"
+	delta1 := int64(5)
+	delta2 := int64(3)
+	expectedDelta := int64(8)
+
+	metrics1 := []*model.Metrics{
+		{ID: metricName, MType: model.Counter, Delta: &delta1},
+	}
+	err := service.UpdateMetricsBatchByStruct(metrics1)
+	require.NoError(t, err, "First batch update failed")
+
+	metrics2 := []*model.Metrics{
+		{ID: metricName, MType: model.Counter, Delta: &delta2},
+	}
+	err = service.UpdateMetricsBatchByStruct(metrics2)
+	require.NoError(t, err, "Second batch update failed")
+
+	metric, err := service.GetMetric(model.Counter, metricName)
+	require.NoError(t, err, "Get failed")
+	require.Equal(t, expectedDelta, *metric.Delta, "Delta should accumulate")
+}

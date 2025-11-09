@@ -84,8 +84,7 @@ func main() {
 	handlers := handler.NewHandlers(metricsService, appLogger)
 	router := chi.NewRouter()
 
-	router.Use(handler.LoggingMiddleware(appLogger))
-	router.Use(handler.GzipDecompressMiddleware(appLogger))
+	router.Use(handler.LoggingMiddleware(appLogger), handler.GzipDecompressMiddleware(appLogger))
 
 	router.Get(config.PingPath, handlers.PingHandler)
 
@@ -95,6 +94,7 @@ func main() {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
 			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
+		r.Post(config.UpdatesPath, handlers.UpdateMetricsBatchHandler)
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByURL)
 			r.Post("/", handlers.GetValueHandlerByJSON)

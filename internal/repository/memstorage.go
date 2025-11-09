@@ -37,6 +37,21 @@ func (m *MemStorage) UpdateMetric(metric *model.Metrics) error {
 	return nil
 }
 
+func (m *MemStorage) UpdateMetricsBatch(metrics []*model.Metrics) error {
+	if metrics == nil {
+		return fmt.Errorf("metrics are nil")
+	}
+
+	for _, metric := range metrics {
+		if err := m.UpdateMetric(metric); err != nil {
+			return fmt.Errorf("failed to update metric %s: %w", metric.String(), err)
+		}
+	}
+
+	m.logger.Debugf("Updated batch of %d metrics", len(metrics))
+	return nil
+}
+
 func (m *MemStorage) GetMetric(metric *model.Metrics) (*model.Metrics, error) {
 	if metric == nil {
 		return nil, fmt.Errorf("metric is nil")

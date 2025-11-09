@@ -25,6 +25,7 @@ func setupTestRouter(handlers *Handlers) *chi.Mux {
 			r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
 			r.Post("/", handlers.UpdateMetricHandlerByJSON)
 		})
+		r.Post(config.UpdatesPath, handlers.UpdateMetricsBatchHandler)
 		r.Route(config.ValuePath, func(r chi.Router) {
 			r.Get("/{metricType}/{metricName}", handlers.GetValueHandlerByURL)
 			r.Post("/", handlers.GetValueHandlerByJSON)
@@ -513,4 +514,105 @@ func TestPingHandlerWithNilService(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	require.Equal(t, "Internal server error\n", rr.Body.String())
+}
+
+func TestUpdateMetricsBatchHandler(t *testing.T) {
+	tests := []struct {
+		name               string
+		method             string
+		path               string
+		contentType        string
+		requestBody        string
+		expectedStatusCode int
+		setupMock          func(*mocks.MockService)
+	}{
+		{
+			name:               "valid batch request",
+			method:             http.MethodPost,
+			path:               config.UpdatesPath,
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `[{"id":"counter1","type":"counter","delta":10},{"id":"gauge1","type":"gauge","value":3.14}]`,
+			expectedStatusCode: http.StatusOK,
+			setupMock: func(mockService *mocks.MockService) {
+				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any()).Return(nil).Times(1)
+			},
+		},
+		{
+			name:               "invalid method GET",
+			method:             http.MethodGet,
+			path:               config.UpdatesPath,
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `[]`,
+			expectedStatusCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:               "invalid content type",
+			method:             http.MethodPost,
+			path:               config.UpdatesPath,
+			contentType:        "text/plain",
+			requestBody:        `[{"id":"counter1","type":"counter","delta":10}]`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "invalid JSON",
+			method:             http.MethodPost,
+			path:               config.UpdatesPath,
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `invalid json`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "empty batch",
+			method:             http.MethodPost,
+			path:               config.UpdatesPath,
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `[]`,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "service error",
+			method:             http.MethodPost,
+			path:               config.UpdatesPath,
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `[{"id":"counter1","type":"counter","delta":10}]`,
+			expectedStatusCode: http.StatusInternalServerError,
+			setupMock: func(mockService *mocks.MockService) {
+				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any()).Return(errors.New("service error")).Times(1)
+			},
+		},
+		{
+			name:               "invalid metric in batch",
+			method:             http.MethodPost,
+			path:               config.UpdatesPath,
+			contentType:        config.ContentTypeJSON,
+			requestBody:        `[{"id":"counter1","type":"counter"}]`,
+			expectedStatusCode: http.StatusInternalServerError,
+			setupMock: func(mockService *mocks.MockService) {
+				mockService.EXPECT().UpdateMetricsBatchByStruct(gomock.Any()).Return(errors.New("validation failed")).Times(1)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockService := mocks.NewMockService(ctrl)
+			if test.setupMock != nil {
+				test.setupMock(mockService)
+			}
+
+			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())
+			router := setupTestRouter(handlers)
+
+			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.requestBody))
+			req.Header.Set(config.ContentTypeHeader, test.contentType)
+
+			rr := httptest.NewRecorder()
+
+			router.ServeHTTP(rr, req)
+			require.Equal(t, test.expectedStatusCode, rr.Code, "Expected status code %d, got %d", test.expectedStatusCode, rr.Code)
+		})
+	}
 }

@@ -53,7 +53,24 @@ func (s *MetricsService) GetAllMetrics() ([]*model.Metrics, error) {
 }
 
 func (s *MetricsService) UpdateMetricByStruct(metric *model.Metrics) error {
+	if err := ValidateMetric(metric); err != nil {
+		return err
+	}
 	return s.repository.UpdateMetric(metric)
+}
+
+func (s *MetricsService) UpdateMetricsBatchByStruct(metrics []*model.Metrics) error {
+	if metrics == nil {
+		return fmt.Errorf("metrics are nil")
+	}
+
+	for _, metric := range metrics {
+		if err := ValidateMetric(metric); err != nil {
+			return fmt.Errorf("validation failed for metric %s: %w", metric.ID, err)
+		}
+	}
+
+	return s.repository.UpdateMetricsBatch(metrics)
 }
 
 func (s *MetricsService) Ping() error {

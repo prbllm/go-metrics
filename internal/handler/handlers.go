@@ -101,6 +101,40 @@ func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.logger.Errorf("Method %s not allowed", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
+		http.Error(w, "Invalid content type", http.StatusBadRequest)
+		return
+	}
+
+	var metrics []*model.Metrics
+	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if len(metrics) == 0 {
+		http.Error(w, "Empty metrics batch", http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Infof("Received batch of %d metrics", len(metrics))
+
+	if err := h.service.UpdateMetricsBatchByStruct(metrics); err != nil {
+		h.logger.Errorf("Error updating metrics batch: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }

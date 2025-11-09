@@ -26,18 +26,31 @@ func NewFileStorageDecorator(memStorage *MemStorage, filePath string, logger log
 	}
 }
 
+func (f *FileStorageDecorator) saveIfSyncMode() {
+	if config.GetConfig().StoreInterval == 0 {
+		if saveErr := f.SaveToFile(); saveErr != nil {
+			f.logger.Errorf("Failed to save metrics: %v", saveErr)
+		}
+	}
+}
+
 func (f *FileStorageDecorator) UpdateMetric(metric *model.Metrics) error {
 	err := f.memStorage.UpdateMetric(metric)
 	if err != nil {
 		return fmt.Errorf("failed to update metric: %w", err)
 	}
 
-	if config.GetConfig().StoreInterval == 0 {
-		if saveErr := f.SaveToFile(); saveErr != nil {
-			f.logger.Errorf("Failed to save metrics: %v", saveErr)
-		}
+	f.saveIfSyncMode()
+	return nil
+}
+
+func (f *FileStorageDecorator) UpdateMetricsBatch(metrics []*model.Metrics) error {
+	err := f.memStorage.UpdateMetricsBatch(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to update metrics batch: %w", err)
 	}
 
+	f.saveIfSyncMode()
 	return nil
 }
 
