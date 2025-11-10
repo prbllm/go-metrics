@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
@@ -965,6 +967,17 @@ func TestBatchUpdatesIntegration(t *testing.T) {
 		dsn := os.Getenv("DATABASE_DSN")
 		if dsn == "" {
 			dsn = "postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable"
+		}
+
+		pgConfig, err := pgx.ParseConfig(dsn)
+		if err == nil {
+			db := stdlib.OpenDB(*pgConfig)
+			if db != nil {
+				if pingErr := db.Ping(); pingErr == nil {
+					_, _ = db.Exec("TRUNCATE TABLE metrics")
+				}
+				db.Close()
+			}
 		}
 
 		logger := zaptest.NewLogger(t).Sugar()

@@ -204,8 +204,9 @@ func (p *PostgresRepository) UpdateMetricsBatch(ctx context.Context, metrics []*
 			return fmt.Errorf("failed to begin transaction: %w", err)
 		}
 
+		committed := false
 		defer func() {
-			if err != nil {
+			if !committed {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
 					p.logger.Errorf("Failed to rollback transaction: %v", rollbackErr)
 				}
@@ -220,45 +221,40 @@ func (p *PostgresRepository) UpdateMetricsBatch(ctx context.Context, metrics []*
 
 		for _, metric := range metrics {
 			if metric == nil {
-				err = fmt.Errorf("metric is nil in batch")
-				return err
+				return fmt.Errorf("metric is nil in batch")
 			}
 
 			switch metric.MType {
 			case model.Counter:
 				if metric.Delta == nil {
-					err = fmt.Errorf("delta is required for counter metric %s", metric.ID)
-					return err
+					return fmt.Errorf("delta is required for counter metric %s", metric.ID)
 				}
 
 				_, execErr := counterStmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Delta)
 				if execErr != nil {
-					err = fmt.Errorf("failed to update counter metric %s: %w", metric.ID, execErr)
-					return err
+					return fmt.Errorf("failed to update counter metric %s: %w", metric.ID, execErr)
 				}
 
 			case model.Gauge:
 				if metric.Value == nil {
-					err = fmt.Errorf("value is required for gauge metric %s", metric.ID)
-					return err
+					return fmt.Errorf("value is required for gauge metric %s", metric.ID)
 				}
 
 				_, execErr := gaugeStmt.ExecContext(ctx, metric.ID, metric.MType, *metric.Value)
 				if execErr != nil {
-					err = fmt.Errorf("failed to update gauge metric %s: %w", metric.ID, execErr)
-					return err
+					return fmt.Errorf("failed to update gauge metric %s: %w", metric.ID, execErr)
 				}
 
 			default:
-				err = fmt.Errorf("unknown metric type: %s for metric %s", metric.MType, metric.ID)
-				return err
+				return fmt.Errorf("unknown metric type: %s for metric %s", metric.MType, metric.ID)
 			}
 		}
 
-		if err = tx.Commit(); err != nil {
+		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("failed to commit transaction: %w", err)
 		}
 
+		committed = true
 		p.logger.Debugf("Successfully updated batch of %d metrics", len(metrics))
 		return nil
 	})
