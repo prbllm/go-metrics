@@ -12,6 +12,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
+	"github.com/prbllm/go-metrics/internal/retry"
 )
 
 type Agent struct {
@@ -148,17 +149,18 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 		updateURL := a.getBaseURL() + config.UpdatePath
-		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, updateURL, bytes.NewBuffer(compressedData))
-		if err != nil {
-			cancel()
-			a.logger.Errorf("Error creating request: %v. Skipping...", err)
-			continue
-		}
 
-		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
-		req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+		response, err := retry.RetryWithBackoffHTTP(reqCtx, a.logger, func() (*http.Response, error) {
+			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, updateURL, bytes.NewBuffer(compressedData))
+			if err != nil {
+				return nil, fmt.Errorf("error creating request: %w", err)
+			}
 
-		response, err := a.client.Do(req)
+			req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+			req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+			return a.client.Do(req)
+		})
 		cancel()
 		if err != nil {
 			a.logger.Errorf("Error sending metric via JSON: %v. Skipping...", err)
@@ -200,15 +202,18 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 		stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 	batchURL := a.getBatchURL()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, batchURL, bytes.NewBuffer(compressedData))
-	if err != nil {
-		return fmt.Errorf("error creating batch request: %w", err)
-	}
 
-	req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
-	req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+	response, err := retry.RetryWithBackoffHTTP(reqCtx, a.logger, func() (*http.Response, error) {
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, batchURL, bytes.NewBuffer(compressedData))
+		if err != nil {
+			return nil, fmt.Errorf("error creating batch request: %w", err)
+		}
 
-	response, err := a.client.Do(req)
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+		return a.client.Do(req)
+	})
 	if err != nil {
 		return fmt.Errorf("error sending metrics batch: %w", err)
 	}

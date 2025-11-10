@@ -175,6 +175,6 @@ func TestAgentBatchJSONWrongStatusCode(t *testing.T) {
 	}
 
 	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
-	require.Error(t, err, "Expected error for wrong status code")
-	require.Contains(t, err.Error(), "unexpected status code")
+	require.Error(t, err, "Expected error for retriable status code (500)")
+	require.Contains(t, err.Error(), "error sending metrics batch")
 }
