@@ -83,3 +83,10 @@ const (
 	ContentTypeTextPlain = "text/plain"
 	ContentEncodingGzip  = "gzip"
 )
+
+const (
+	MaxRetries = 3
+	Delay1     = 1 * time.Second
+	Delay3     = 3 * time.Second
+	Delay5     = 5 * time.Second
+)
