@@ -86,6 +86,7 @@ func TestRunMigrations(t *testing.T) {
 		require.NoError(t, err, "Failed to scan column")
 		foundColumns[colName] = dataType
 	}
+	require.NoError(t, rows.Err(), "Error occurred during row iteration")
 
 	require.Equal(t, len(expectedColumns), len(foundColumns), "Column count mismatch")
 

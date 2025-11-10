@@ -35,6 +35,19 @@ func TestStoragePriority_DatabaseDSN(t *testing.T) {
 	cfg := config.GetConfig()
 	cfg.DatabaseDSN = dsn
 
+	pgConfig, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		t.Skipf("Skipping test: failed to parse DSN: %v", err)
+		return
+	}
+	db := stdlib.OpenDB(*pgConfig)
+	if err := db.Ping(); err != nil {
+		db.Close()
+		t.Skipf("Skipping test: database not available: %v", err)
+		return
+	}
+	db.Close()
+
 	repo := selectStorage(cfg, logger)
 	require.NotNil(t, repo, "Repository should not be nil")
 
