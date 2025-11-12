@@ -12,12 +12,16 @@ const (
 	DefaultStoreInterval       = 30 * time.Second
 	DefaultFileStoragePath     = "metrics.json"
 	DefaultRestore             = false
+	DefaultDatabaseDSN         = ""
+	HTTPRequestTimeout         = 10 * time.Second
 )
 
 const (
-	ValuePath  = "/value"
-	UpdatePath = "/update"
-	CommonPath = "/"
+	ValuePath   = "/value"
+	UpdatePath  = "/update"
+	UpdatesPath = "/updates"
+	CommonPath  = "/"
+	PingPath    = "/ping"
 )
 
 const (
@@ -31,6 +35,7 @@ const (
 	PollIntervalFlag            = "p"
 	StoreIntervalFlag           = "i"
 	FileStoragePathFlag         = "f"
+	DatabaseDSNFlag             = "d"
 )
 
 const (
@@ -40,6 +45,7 @@ const (
 	StoreIntervalDescription   = "Store interval in seconds (default: 30)"
 	FileStoragePathDescription = "File storage path (default: metrics.json)"
 	RestoreDescription         = "Restore from file storage (true/false, default: false)"
+	DatabaseDSNDescription     = "Database connection string (DSN)"
 )
 
 const (
@@ -50,6 +56,7 @@ const (
 	StoreIntervalEnvVar   = "STORE_INTERVAL"
 	FileStoragePathEnvVar = "FILE_STORAGE_PATH"
 	RestoreEnvVar         = "RESTORE"
+	DatabaseDSNEnvVar     = "DATABASE_DSN"
 )
 
 const (
@@ -75,4 +82,11 @@ const (
 	ContentTypeJSON      = "application/json"
 	ContentTypeTextPlain = "text/plain"
 	ContentEncodingGzip  = "gzip"
+)
+
+const (
+	MaxRetries = 3
+	Delay1     = 1 * time.Second
+	Delay3     = 3 * time.Second
+	Delay5     = 5 * time.Second
 )

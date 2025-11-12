@@ -12,7 +12,7 @@ import (
 )
 
 func cleanupEnvironment() {
-	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar, StoreIntervalEnvVar, FileStoragePathEnvVar, RestoreEnvVar}
+	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar, StoreIntervalEnvVar, FileStoragePathEnvVar, RestoreEnvVar, DatabaseDSNEnvVar}
 	for _, envVar := range envVars {
 		os.Unsetenv(envVar)
 	}
@@ -33,6 +33,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				StoreIntervalEnvVar:   "60",
 				FileStoragePathEnvVar: "/tmp/env-metrics.json",
 				RestoreEnvVar:         "true",
+				DatabaseDSNEnvVar:     "postgres://user:pass@localhost/db",
 			},
 			expectedConfig: Config{
 				ServerHost:          "env-server:9090",
@@ -41,6 +42,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				StoreInterval:       60 * time.Second,
 				FileStoragePath:     "/tmp/env-metrics.json",
 				Restore:             true,
+				DatabaseDSN:         "postgres://user:pass@localhost/db",
 			},
 		},
 		{
@@ -55,6 +57,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 		},
 		{
@@ -67,6 +70,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 		},
 	}
@@ -90,6 +94,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 			assert.Equal(t, tt.expectedConfig.StoreInterval, config.StoreInterval, "StoreInterval is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.FileStoragePath, config.FileStoragePath, "FileStoragePath is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.Restore, config.Restore, "Restore is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.DatabaseDSN, config.DatabaseDSN, "DatabaseDSN is not equal to expected")
 		})
 	}
 }
@@ -117,6 +122,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Environment variables should override command line flags for agent",
 		},
@@ -131,6 +137,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Command line flags should override defaults when no env vars for agent",
 		},
@@ -145,6 +152,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Default values when no flags or environment variables for agent",
 		},
@@ -162,6 +170,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Mixed priority - environment for address and poll interval, flags for report interval",
 		},
@@ -205,8 +214,9 @@ func TestConfigPriorityServer(t *testing.T) {
 				StoreIntervalEnvVar:   "60",
 				FileStoragePathEnvVar: "/tmp/env-metrics.json",
 				RestoreEnvVar:         "true",
+				DatabaseDSNEnvVar:     "postgres://env:pass@localhost/db",
 			},
-			flags: []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "false"},
+			flags: []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "false", "-d", "postgres://flag:pass@localhost/db"},
 			expected: Config{
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: DefaultAgentReportInterval,
@@ -214,13 +224,14 @@ func TestConfigPriorityServer(t *testing.T) {
 				StoreInterval:       60 * time.Second,
 				FileStoragePath:     "/tmp/env-metrics.json",
 				Restore:             true,
+				DatabaseDSN:         "postgres://env:pass@localhost/db",
 			},
 			description: "Environment variables should override command line flags for server",
 		},
 		{
 			name:    "flags override defaults",
 			envVars: map[string]string{},
-			flags:   []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "true"},
+			flags:   []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "true", "-d", "postgres://flag:pass@localhost/db"},
 			expected: Config{
 				ServerHost:          "flag-server:8080",
 				AgentReportInterval: DefaultAgentReportInterval,
@@ -228,6 +239,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "/tmp/flag-metrics.json",
 				Restore:             true,
+				DatabaseDSN:         "postgres://flag:pass@localhost/db",
 			},
 			description: "Command line flags should override defaults when no env vars for server",
 		},
@@ -242,6 +254,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Default values when no flags or environment variables for server",
 		},
@@ -259,6 +272,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "/tmp/env-metrics.json",
 				Restore:             true,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Mixed priority - environment for address and file path, flags for store interval and restore",
 		},
@@ -273,6 +287,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				StoreInterval:       DefaultStoreInterval,
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             true,
+				DatabaseDSN:         DefaultDatabaseDSN,
 			},
 			description: "Restore flag without value should be interpreted as true for server",
 		},
@@ -298,6 +313,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				"FileStoragePath: %s", tt.description)
 			assert.Equal(t, tt.expected.Restore, config.Restore,
 				"Restore: %s", tt.description)
+			assert.Equal(t, tt.expected.DatabaseDSN, config.DatabaseDSN,
+				"DatabaseDSN: %s", tt.description)
 		})
 	}
 }
@@ -318,6 +335,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "metrics.json",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: false,
 		},
@@ -330,6 +348,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "metrics.json",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: true,
 			errorMsg:    "server host cannot be empty",
@@ -343,6 +362,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "metrics.json",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: true,
 			errorMsg:    "agent poll interval must be positive",
@@ -356,6 +376,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "metrics.json",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: true,
 			errorMsg:    "agent report interval must be positive",
@@ -369,6 +390,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "metrics.json",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: true,
 			errorMsg:    "agent poll interval must be positive",
@@ -382,6 +404,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       -1 * time.Second,
 				FileStoragePath:     "metrics.json",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: true,
 			errorMsg:    "store interval must be non-negative",
@@ -395,6 +418,7 @@ func TestConfigValidation(t *testing.T) {
 				StoreInterval:       30 * time.Second,
 				FileStoragePath:     "",
 				Restore:             false,
+				DatabaseDSN:         "",
 			},
 			expectError: true,
 			errorMsg:    "file storage path cannot be empty",
@@ -423,9 +447,10 @@ func TestConfigString(t *testing.T) {
 		StoreInterval:       60 * time.Second,
 		FileStoragePath:     "/tmp/test-metrics.json",
 		Restore:             true,
+		DatabaseDSN:         "postgres://test:pass@localhost/testdb",
 	}
 
-	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true}"
+	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true, DatabaseDSN: postgres://test:pass@localhost/testdb}"
 	actual := config.String()
 
 	assert.Equal(t, expected, actual)

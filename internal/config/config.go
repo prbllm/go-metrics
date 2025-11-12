@@ -18,6 +18,7 @@ type Config struct {
 	StoreInterval   time.Duration
 	FileStoragePath string
 	Restore         bool
+	DatabaseDSN     string
 }
 
 var globalConfig *Config
@@ -30,6 +31,7 @@ func defaultConfig() *Config {
 		StoreInterval:       DefaultStoreInterval,
 		FileStoragePath:     DefaultFileStoragePath,
 		Restore:             DefaultRestore,
+		DatabaseDSN:         DefaultDatabaseDSN,
 	}
 }
 
@@ -76,8 +78,8 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) String() string {
-	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v}",
-		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore)
+	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s}",
+		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN)
 }
 
 func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
@@ -138,5 +140,12 @@ func (c *Config) loadServerEnvironmets(logger logger.Logger) {
 		} else {
 			c.Restore = false
 		}
+	}
+
+	databaseDSN, err := GetEnvironment(DatabaseDSNEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get database DSN from environment: %v", err)
+	} else {
+		c.DatabaseDSN = databaseDSN
 	}
 }

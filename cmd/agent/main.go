@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/prbllm/go-metrics/internal/agent"
 	"github.com/prbllm/go-metrics/internal/config"
@@ -24,7 +26,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	collector := agent.NewRuntimeMetricsCollector(appLogger)
-	agent := agent.NewAgent(http.DefaultClient, collector, "http://"+config.GetConfig().ServerHost+config.UpdatePath, config.GetConfig().AgentPollInterval, config.GetConfig().AgentReportInterval, appLogger)
-	agent.Start(context.Background())
+	agent := agent.NewAgent(http.DefaultClient, collector, appLogger)
+	agent.Start(ctx)
 }

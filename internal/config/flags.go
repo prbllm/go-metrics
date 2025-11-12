@@ -10,8 +10,9 @@ import (
 )
 
 func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorHandling, logger logger.Logger) *Config {
-	config := defaultConfig()
+	logger.Infof("Parsing flags for %s, flags: %v", flagsetName, args)
 
+	config := defaultConfig()
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
 
 	fs.StringVar(&config.ServerHost, ServerHostFlag, config.ServerHost, ServerHostDescription)
@@ -46,22 +47,31 @@ func parseServerFlags(fs *flag.FlagSet, config *Config, args []string) {
 	var restoreFlag bool
 	var restoreStr string
 
+	processedArgs := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-"+ReportIntervalOrRestoreFlag && i+1 < len(args) {
+			nextArg := args[i+1]
+			if nextArg == "true" || nextArg == "false" || nextArg == "1" || nextArg == "0" {
+				restoreStr = nextArg
+				processedArgs = append(processedArgs, args[i])
+				i++
+				continue
+			}
+		}
+		processedArgs = append(processedArgs, args[i])
+	}
+
 	fs.IntVar(&storeIntervalSec, StoreIntervalFlag, int(config.StoreInterval.Seconds()), StoreIntervalDescription)
 
 	fs.StringVar(&config.FileStoragePath, FileStoragePathFlag, config.FileStoragePath, FileStoragePathDescription)
 
 	fs.BoolVar(&restoreFlag, ReportIntervalOrRestoreFlag, false, RestoreDescription)
 
-	fs.Parse(args)
+	fs.StringVar(&config.DatabaseDSN, DatabaseDSNFlag, config.DatabaseDSN, DatabaseDSNDescription)
+
+	fs.Parse(processedArgs)
 
 	config.StoreInterval = time.Duration(storeIntervalSec) * time.Second
-
-	for i, arg := range args {
-		if arg == "-"+ReportIntervalOrRestoreFlag && i+1 < len(args) {
-			restoreStr = args[i+1]
-			break
-		}
-	}
 
 	if restoreStr != "" {
 		config.Restore = parseBoolFlag(restoreStr)
