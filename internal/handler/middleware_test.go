@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
@@ -174,6 +175,60 @@ func TestGzipDecompressMiddlewareWithAcceptEncoding(t *testing.T) {
 				require.Equal(t, responseData, rr.Body.Bytes(),
 					"Response should not be compressed")
 			}
+		})
+	}
+}
+
+func TestHashValidationMiddleware(t *testing.T) {
+	router := chi.NewRouter()
+	router.Use(HashValidationMiddleware(zaptest.NewLogger(t).Sugar()))
+
+	router.Post("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	testCases := []struct {
+		name           string
+		key            string
+		emptyHeader    bool
+		expectedStatus int
+	}{
+		{
+			name:           "Valid",
+			key:            "test-key",
+			emptyHeader:    false,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Invalid header",
+			emptyHeader:    true,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Another key",
+			key:            "another-key",
+			emptyHeader:    false,
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	config.SetConfig(&config.Config{
+		Key: "test-key",
+	}, zaptest.NewLogger(t).Sugar())
+
+	jsonData := []byte(`{"id": "test", "type": "gauge", "value": 1.0}`)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/test", bytes.NewReader(jsonData))
+			if !tc.emptyHeader {
+				req.Header.Set(config.HashSHA256Header, hash.ComputeHash(tc.key, jsonData))
+			}
+			req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+			require.Equal(t, tc.expectedStatus, rr.Code, "Expected status %d", tc.expectedStatus)
 		})
 	}
 }

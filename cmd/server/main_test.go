@@ -17,6 +17,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
+	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
@@ -1061,5 +1062,80 @@ func TestBatchUpdatesIntegration(t *testing.T) {
 		counter1Updated, err := postgresRepo.GetMetric(context.Background(), &model.Metrics{ID: "pg_batch_counter_1", MType: model.Counter})
 		require.NoError(t, err, "Failed to get updated counter1 from database")
 		require.Equal(t, int64(1500), *counter1Updated.Delta, "Counter1 should accumulate: 1000 + 500 = 1500")
+	})
+}
+
+func TestHashValidationMiddlewareIntegration(t *testing.T) {
+	testKey := "test-hash-key"
+	logger := zaptest.NewLogger(t).Sugar()
+
+	config.SetConfig(&config.Config{
+		Key: testKey,
+	}, logger)
+
+	storage := repository.NewMemStorage(logger)
+	metricsService := service.NewMetricsService(storage)
+	handlers := handler.NewHandlers(metricsService, logger)
+
+	router := chi.NewRouter()
+	router.Use(handler.HashValidationMiddleware(logger))
+	router.Route(config.CommonPath, func(r chi.Router) {
+		r.Route(config.UpdatePath, func(r chi.Router) {
+			r.Post("/", handlers.UpdateMetricHandlerByJSON)
+		})
+	})
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	t.Run("valid hash", func(t *testing.T) {
+		metric := model.Metrics{
+			ID:    "test_hash_metric",
+			MType: model.Gauge,
+			Value: func() *float64 { v := 123.45; return &v }(),
+		}
+
+		jsonData, err := json.Marshal(metric)
+		require.NoError(t, err)
+
+		expectedHash := hash.ComputeHash(testKey, jsonData)
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err)
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.Header.Set(config.HashSHA256Header, expectedHash)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Request should succeed with valid hash")
+		require.NotEmpty(t, resp.Header.Get(config.HashSHA256Header), "Response should contain hash header")
+	})
+
+	t.Run("invalid hash", func(t *testing.T) {
+		metric := model.Metrics{
+			ID:    "test_hash_invalid",
+			MType: model.Gauge,
+			Value: func() *float64 { v := 456.78; return &v }(),
+		}
+
+		jsonData, err := json.Marshal(metric)
+		require.NoError(t, err)
+
+		invalidHash := "invalid-hash-value"
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err)
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.Header.Set(config.HashSHA256Header, invalidHash)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode, "Request should fail with invalid hash")
+		body, _ := io.ReadAll(resp.Body)
+		require.Contains(t, string(body), "Invalid hash", "Error message should indicate invalid hash")
 	})
 }
