@@ -19,6 +19,7 @@ type Config struct {
 	FileStoragePath string
 	Restore         bool
 	DatabaseDSN     string
+	Key             string
 }
 
 var globalConfig *Config
@@ -32,6 +33,7 @@ func defaultConfig() *Config {
 		FileStoragePath:     DefaultFileStoragePath,
 		Restore:             DefaultRestore,
 		DatabaseDSN:         DefaultDatabaseDSN,
+		Key:                 DefaultKey,
 	}
 }
 
@@ -78,8 +80,8 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) String() string {
-	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s}",
-		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN)
+	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s, Key: %s}",
+		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN, c.Key)
 }
 
 func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
@@ -88,6 +90,13 @@ func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
 		logger.Warnf("failed to get server host from environment: %v", err)
 	} else {
 		c.ServerHost = address
+	}
+
+	key, err := GetEnvironment(KeyEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get key from environment: %v", err)
+	} else {
+		c.Key = key
 	}
 
 	switch flagsetName {

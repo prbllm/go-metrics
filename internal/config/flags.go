@@ -16,6 +16,7 @@ func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorH
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
 
 	fs.StringVar(&config.ServerHost, ServerHostFlag, config.ServerHost, ServerHostDescription)
+	fs.StringVar(&config.Key, KeyFlag, config.Key, KeyDescription)
 
 	switch flagsetName {
 	case AgentFlagsSet:

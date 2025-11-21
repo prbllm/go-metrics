@@ -12,7 +12,7 @@ import (
 )
 
 func cleanupEnvironment() {
-	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar, StoreIntervalEnvVar, FileStoragePathEnvVar, RestoreEnvVar, DatabaseDSNEnvVar}
+	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar, StoreIntervalEnvVar, FileStoragePathEnvVar, RestoreEnvVar, DatabaseDSNEnvVar, KeyEnvVar}
 	for _, envVar := range envVars {
 		os.Unsetenv(envVar)
 	}
@@ -34,6 +34,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				FileStoragePathEnvVar: "/tmp/env-metrics.json",
 				RestoreEnvVar:         "true",
 				DatabaseDSNEnvVar:     "postgres://user:pass@localhost/db",
+				KeyEnvVar:             "env-key-123",
 			},
 			expectedConfig: Config{
 				ServerHost:          "env-server:9090",
@@ -43,6 +44,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				FileStoragePath:     "/tmp/env-metrics.json",
 				Restore:             true,
 				DatabaseDSN:         "postgres://user:pass@localhost/db",
+				Key:                 "env-key-123",
 			},
 		},
 		{
@@ -95,6 +97,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 			assert.Equal(t, tt.expectedConfig.FileStoragePath, config.FileStoragePath, "FileStoragePath is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.Restore, config.Restore, "Restore is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.DatabaseDSN, config.DatabaseDSN, "DatabaseDSN is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.Key, config.Key, "Key is not equal to expected")
 		})
 	}
 }
@@ -113,8 +116,9 @@ func TestConfigPriorityAgent(t *testing.T) {
 				AddressEnvVar:        "env-server:9090",
 				ReportIntervalEnvVar: "15",
 				PollIntervalEnvVar:   "5",
+				KeyEnvVar:            "env-key-789",
 			},
-			flags: []string{"-a", "flag-server:8080", "-r", "20", "-p", "10"},
+			flags: []string{"-a", "flag-server:8080", "-r", "20", "-p", "10", "-k", "flag-key-456"},
 			expected: Config{
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: 15 * time.Second,
@@ -123,13 +127,14 @@ func TestConfigPriorityAgent(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				Key:                 "env-key-789",
 			},
 			description: "Environment variables should override command line flags for agent",
 		},
 		{
 			name:    "flags override defaults",
 			envVars: map[string]string{},
-			flags:   []string{"-a", "flag-server:8080", "-r", "20", "-p", "10"},
+			flags:   []string{"-a", "flag-server:8080", "-r", "20", "-p", "10", "-k", "flag-key-123"},
 			expected: Config{
 				ServerHost:          "flag-server:8080",
 				AgentReportInterval: 20 * time.Second,
@@ -138,6 +143,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				Key:                 "flag-key-123",
 			},
 			description: "Command line flags should override defaults when no env vars for agent",
 		},
@@ -161,6 +167,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 			envVars: map[string]string{
 				AddressEnvVar:      "env-server:9090",
 				PollIntervalEnvVar: "5",
+				KeyEnvVar:          "env-key-mixed",
 			},
 			flags: []string{"-r", "20"},
 			expected: Config{
@@ -171,6 +178,7 @@ func TestConfigPriorityAgent(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				Key:                 "env-key-mixed",
 			},
 			description: "Mixed priority - environment for address and poll interval, flags for report interval",
 		},
@@ -195,6 +203,8 @@ func TestConfigPriorityAgent(t *testing.T) {
 				"AgentReportInterval: %s", tt.description)
 			assert.Equal(t, tt.expected.AgentPollInterval, config.AgentPollInterval,
 				"AgentPollInterval: %s", tt.description)
+			assert.Equal(t, tt.expected.Key, config.Key,
+				"Key: %s", tt.description)
 		})
 	}
 }
@@ -215,8 +225,9 @@ func TestConfigPriorityServer(t *testing.T) {
 				FileStoragePathEnvVar: "/tmp/env-metrics.json",
 				RestoreEnvVar:         "true",
 				DatabaseDSNEnvVar:     "postgres://env:pass@localhost/db",
+				KeyEnvVar:             "env-server-key-999",
 			},
-			flags: []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "false", "-d", "postgres://flag:pass@localhost/db"},
+			flags: []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "false", "-d", "postgres://flag:pass@localhost/db", "-k", "flag-server-key-888"},
 			expected: Config{
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: DefaultAgentReportInterval,
@@ -225,13 +236,14 @@ func TestConfigPriorityServer(t *testing.T) {
 				FileStoragePath:     "/tmp/env-metrics.json",
 				Restore:             true,
 				DatabaseDSN:         "postgres://env:pass@localhost/db",
+				Key:                 "env-server-key-999",
 			},
 			description: "Environment variables should override command line flags for server",
 		},
 		{
 			name:    "flags override defaults",
 			envVars: map[string]string{},
-			flags:   []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "true", "-d", "postgres://flag:pass@localhost/db"},
+			flags:   []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "true", "-d", "postgres://flag:pass@localhost/db", "-k", "flag-server-key-777"},
 			expected: Config{
 				ServerHost:          "flag-server:8080",
 				AgentReportInterval: DefaultAgentReportInterval,
@@ -240,6 +252,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				FileStoragePath:     "/tmp/flag-metrics.json",
 				Restore:             true,
 				DatabaseDSN:         "postgres://flag:pass@localhost/db",
+				Key:                 "flag-server-key-777",
 			},
 			description: "Command line flags should override defaults when no env vars for server",
 		},
@@ -263,6 +276,7 @@ func TestConfigPriorityServer(t *testing.T) {
 			envVars: map[string]string{
 				AddressEnvVar:         "env-server:9090",
 				FileStoragePathEnvVar: "/tmp/env-metrics.json",
+				KeyEnvVar:             "env-server-key-mixed",
 			},
 			flags: []string{"-i", "30", "-r", "true"},
 			expected: Config{
@@ -273,6 +287,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				FileStoragePath:     "/tmp/env-metrics.json",
 				Restore:             true,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				Key:                 "env-server-key-mixed",
 			},
 			description: "Mixed priority - environment for address and file path, flags for store interval and restore",
 		},
@@ -315,6 +330,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				"Restore: %s", tt.description)
 			assert.Equal(t, tt.expected.DatabaseDSN, config.DatabaseDSN,
 				"DatabaseDSN: %s", tt.description)
+			assert.Equal(t, tt.expected.Key, config.Key,
+				"Key: %s", tt.description)
 		})
 	}
 }
@@ -448,9 +465,10 @@ func TestConfigString(t *testing.T) {
 		FileStoragePath:     "/tmp/test-metrics.json",
 		Restore:             true,
 		DatabaseDSN:         "postgres://test:pass@localhost/testdb",
+		Key:                 "test-key-123",
 	}
 
-	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true, DatabaseDSN: postgres://test:pass@localhost/testdb}"
+	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true, DatabaseDSN: postgres://test:pass@localhost/testdb, Key: test-key-123}"
 	actual := config.String()
 
 	assert.Equal(t, expected, actual)

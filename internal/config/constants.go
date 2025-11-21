@@ -13,6 +13,7 @@ const (
 	DefaultFileStoragePath     = "metrics.json"
 	DefaultRestore             = false
 	DefaultDatabaseDSN         = ""
+	DefaultKey                 = ""
 	HTTPRequestTimeout         = 10 * time.Second
 )
 
@@ -36,6 +37,7 @@ const (
 	StoreIntervalFlag           = "i"
 	FileStoragePathFlag         = "f"
 	DatabaseDSNFlag             = "d"
+	KeyFlag                     = "k"
 )
 
 const (
@@ -46,6 +48,7 @@ const (
 	FileStoragePathDescription = "File storage path (default: metrics.json)"
 	RestoreDescription         = "Restore from file storage (true/false, default: false)"
 	DatabaseDSNDescription     = "Database connection string (DSN)"
+	KeyDescription             = "Key for hash"
 )
 
 const (
@@ -57,6 +60,7 @@ const (
 	FileStoragePathEnvVar = "FILE_STORAGE_PATH"
 	RestoreEnvVar         = "RESTORE"
 	DatabaseDSNEnvVar     = "DATABASE_DSN"
+	KeyEnvVar             = "KEY"
 )
 
 const (
