@@ -80,6 +80,7 @@ const (
 	ContentEncodingHeader = "Content-Encoding"
 	AcceptEncodingHeader  = "Accept-Encoding"
 	VaryHeader            = "Vary"
+	HashSHA256Header      = "HashSHA256"
 )
 
 const (

@@ -10,6 +10,7 @@ import (
 
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/retry"
@@ -149,6 +150,7 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 		updateURL := a.getBaseURL() + config.UpdatePath
+		cfg := config.GetConfig()
 
 		response, err := retry.RetryWithBackoffHTTP(reqCtx, a.logger, func() (*http.Response, error) {
 			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, updateURL, bytes.NewBuffer(compressedData))
@@ -158,6 +160,11 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 
 			req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
 			req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+			if cfg.Key != "" {
+				hashValue := hash.ComputeHash(cfg.Key, jsonData)
+				req.Header.Set(config.HashSHA256Header, hashValue)
+			}
 
 			return a.client.Do(req)
 		})
@@ -202,6 +209,7 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 		stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
 
 	batchURL := a.getBatchURL()
+	cfg := config.GetConfig()
 
 	response, err := retry.RetryWithBackoffHTTP(reqCtx, a.logger, func() (*http.Response, error) {
 		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, batchURL, bytes.NewBuffer(compressedData))
@@ -211,6 +219,11 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 
 		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
 		req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+		if cfg.Key != "" {
+			hashValue := hash.ComputeHash(cfg.Key, jsonData)
+			req.Header.Set(config.HashSHA256Header, hashValue)
+		}
 
 		return a.client.Do(req)
 	})

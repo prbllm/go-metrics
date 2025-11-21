@@ -151,10 +151,16 @@ func RetryWithBackoffHTTP(
 		}
 
 		if IsRetriableHTTPResponse(resp) {
+			if lastResp != nil && lastResp.Body != nil {
+				lastResp.Body.Close()
+			}
 			lastResp = resp
 			return &httpError{statusCode: resp.StatusCode}
 		}
 
+		if lastResp != nil && lastResp.Body != nil {
+			lastResp.Body.Close()
+		}
 		lastResp = resp
 		return nil
 	}

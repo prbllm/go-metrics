@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -441,4 +442,186 @@ func TestAgentSendMetricsJSON_ContextTimeout(t *testing.T) {
 
 	err := agent.SendMetricsJSON(ctx, metrics)
 	require.NoError(t, err, "Should not return error (skips metric on timeout)")
+}
+
+func TestAgentSendMetricsJSON_WithHashHeader(t *testing.T) {
+	commonValue := float64(1.0)
+	testKey := "test-key-123"
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        testKey,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics successfully")
+	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present when key is set")
+}
+
+func TestAgentSendMetricsJSON_WithoutHashHeader(t *testing.T) {
+	commonValue := float64(1.0)
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        "",
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics successfully")
+	require.Empty(t, receivedHash, "HashSHA256 header should not be present when key is empty")
+}
+
+func TestAgentSendMetricsJSON_HashComputation(t *testing.T) {
+	commonValue := float64(1.0)
+	testKey := "test-key-456"
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        testKey,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics successfully")
+	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present")
+
+	jsonData, err := json.Marshal(metrics[0])
+	require.NoError(t, err, "Should marshal metric to JSON")
+	expectedHash := hash.ComputeHash(testKey, jsonData)
+	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
+}
+
+func TestAgentSendMetricsBatchJSON_WithHashHeader(t *testing.T) {
+	commonValue := float64(1.0)
+	testKey := "test-key-789"
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        testKey,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics batch successfully")
+	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present when key is set")
+}
+
+func TestAgentSendMetricsBatchJSON_WithoutHashHeader(t *testing.T) {
+	commonValue := float64(1.0)
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        "",
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics batch successfully")
+	require.Empty(t, receivedHash, "HashSHA256 header should not be present when key is empty")
+}
+
+func TestAgentSendMetricsBatchJSON_HashComputation(t *testing.T) {
+	commonValue := float64(1.0)
+	testKey := "test-key-batch-123"
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        testKey,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics batch successfully")
+	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present")
+
+	jsonData, err := json.Marshal(metrics)
+	require.NoError(t, err, "Should marshal metrics batch to JSON")
+	expectedHash := hash.ComputeHash(testKey, jsonData)
+	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
 }
