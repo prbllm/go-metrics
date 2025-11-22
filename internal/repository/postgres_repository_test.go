@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -48,22 +49,48 @@ func setupTestRepository(t *testing.T) (*PostgresRepository, func()) {
 		return nil, func() {}
 	}
 
-	db := getTestDB(t)
-	if db != nil {
-		_, _ = db.Exec("TRUNCATE TABLE metrics")
-		db.Close()
+	ctx := context.Background()
+	if err := truncateTable(ctx, dsn); err != nil {
+		t.Logf("Warning: failed to truncate table: %v", err)
 	}
+	time.Sleep(10 * time.Millisecond)
 
 	cleanup := func() {
-		db := getTestDB(t)
-		if db != nil {
-			_, _ = db.Exec("TRUNCATE TABLE metrics")
-			db.Close()
+		if err := truncateTable(ctx, dsn); err != nil {
+			t.Logf("Warning: failed to truncate table in cleanup: %v", err)
 		}
 		repo.Close()
 	}
 
 	return repo, cleanup
+}
+
+func truncateTable(ctx context.Context, dsn string) error {
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return err
+	}
+
+	db := stdlib.OpenDB(*config)
+	defer db.Close()
+
+	if err := db.PingContext(ctx); err != nil {
+		return err
+	}
+
+	var exists bool
+	err = db.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'metrics')").Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return nil
+	}
+
+	_, err = db.ExecContext(ctx, "TRUNCATE TABLE metrics")
+	return err
 }
 
 func TestPostgresRepository_UpdateMetric_Counter(t *testing.T) {
@@ -222,6 +249,9 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 	}
 	err := repo.UpdateMetric(context.Background(), metric1)
 	require.NoError(t, err)
+	retrieved1, err := repo.GetMetric(context.Background(), metric1)
+	require.NoError(t, err)
+	require.NotNil(t, retrieved1)
 
 	delta2 := int64(20)
 	metric2 := &model.Metrics{
@@ -231,6 +261,9 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 	}
 	err = repo.UpdateMetric(context.Background(), metric2)
 	require.NoError(t, err)
+	retrieved2, err := repo.GetMetric(context.Background(), metric2)
+	require.NoError(t, err)
+	require.NotNil(t, retrieved2)
 
 	value1 := 1.5
 	metric3 := &model.Metrics{
@@ -240,6 +273,9 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 	}
 	err = repo.UpdateMetric(context.Background(), metric3)
 	require.NoError(t, err)
+	retrieved3, err := repo.GetMetric(context.Background(), metric3)
+	require.NoError(t, err)
+	require.NotNil(t, retrieved3)
 
 	metrics := repo.GetAllMetrics(context.Background())
 	require.NotNil(t, metrics, "Metrics should not be nil")

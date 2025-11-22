@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prbllm/go-metrics/internal/compression"
@@ -14,54 +15,115 @@ import (
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/retry"
+	"github.com/prbllm/go-metrics/internal/threading"
 )
 
 type Agent struct {
-	client    *http.Client
-	collector *RuntimeMetricsCollector
-	logger    logger.Logger
+	client          *http.Client
+	collector       *RuntimeMetricsCollector
+	logger          logger.Logger
+	pool            *threading.WorkerPool
+	mu              sync.RWMutex
+	runtimeMetrics  []model.Metrics
+	gopsutilMetrics []model.Metrics
 }
 
 func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, logger logger.Logger) *Agent {
 	return &Agent{
-		client:    client,
-		collector: collector,
-		logger:    logger,
+		client:          client,
+		collector:       collector,
+		logger:          logger,
+		runtimeMetrics:  []model.Metrics{},
+		gopsutilMetrics: []model.Metrics{},
 	}
 }
 
-func (a *Agent) Start(context context.Context) {
+func (a *Agent) Start(ctx context.Context) {
 	cfg := config.GetConfig()
 	a.logger.Infof("Starting agent with server host: %s and agent poll interval: %s and agent report interval: %s", cfg.ServerHost, cfg.AgentPollInterval, cfg.AgentReportInterval)
 	if a.collector == nil {
-
 		a.logger.Error("Collector is nil")
 		return
 	}
 
-	collectCounter := int(cfg.AgentReportInterval / cfg.AgentPollInterval)
+	a.pool = threading.NewWorkerPool(cfg.RateLimit)
+	a.pool.Start(ctx)
+
+	go a.handleErrors(ctx)
+
+	pollTicker := time.NewTicker(cfg.AgentPollInterval)
+	defer pollTicker.Stop()
+
+	reportTicker := time.NewTicker(cfg.AgentReportInterval)
+	defer reportTicker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-pollTicker.C:
+				metrics := a.collector.CollectRuntimeMetrics()
+				a.mu.Lock()
+				a.runtimeMetrics = metrics
+				a.mu.Unlock()
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-pollTicker.C:
+				metrics, err := a.collector.CollectGopsutilMetrics()
+				if err != nil {
+					a.logger.Errorf("Error collecting gopsutil metrics: %v", err)
+					continue
+				}
+				a.mu.Lock()
+				a.gopsutilMetrics = metrics
+				a.mu.Unlock()
+			}
+		}
+	}()
+
 	for {
 		select {
-		case <-context.Done():
+		case <-ctx.Done():
 			a.logger.Info("Context done")
+			a.pool.Stop()
 			return
-		default:
-		}
+		case <-reportTicker.C:
+			a.mu.RLock()
+			runtimeMetrics := make([]model.Metrics, len(a.runtimeMetrics))
+			copy(runtimeMetrics, a.runtimeMetrics)
+			gopsutilMetrics := make([]model.Metrics, len(a.gopsutilMetrics))
+			copy(gopsutilMetrics, a.gopsutilMetrics)
+			a.mu.RUnlock()
 
-		metrics := []model.Metrics{}
-		for range collectCounter {
-			select {
-			case <-context.Done():
-				a.logger.Info("Context done")
-				return
-			default:
+			if len(runtimeMetrics) > 0 || len(gopsutilMetrics) > 0 {
+				combinedMetrics := model.CombineMetrics(runtimeMetrics, gopsutilMetrics)
+				if len(combinedMetrics) > 0 {
+					a.pool.AddJob(func() error {
+						return a.SendMetricsBatchJSON(ctx, combinedMetrics)
+					})
+				}
 			}
-			metrics = model.CombineMetrics(metrics, a.collector.CollectRuntimeMetrics())
-			time.Sleep(cfg.AgentPollInterval)
 		}
-		err := a.SendMetricsJSON(context, metrics)
-		if err != nil {
-			a.logger.Errorf("Error sending metrics: %v", err)
+	}
+}
+
+func (a *Agent) handleErrors(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-a.pool.Errors():
+			if err != nil {
+				a.logger.Errorf("Error from worker pool: %v", err)
+			}
 		}
 	}
 }

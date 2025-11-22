@@ -978,16 +978,9 @@ func TestBatchUpdatesIntegration(t *testing.T) {
 		}
 		defer postgresRepo.Close()
 
-		pgConfig, err := pgx.ParseConfig(dsn)
-		if err == nil {
-			db := stdlib.OpenDB(*pgConfig)
-			if db != nil {
-				if pingErr := db.Ping(); pingErr == nil {
-					_, _ = db.Exec("DELETE FROM metrics")
-				}
-				db.Close()
-				time.Sleep(50 * time.Millisecond)
-			}
+		ctx := context.Background()
+		if err := truncateTableForTest(ctx, dsn); err != nil {
+			t.Logf("Warning: failed to truncate table: %v", err)
 		}
 
 		metricsService := service.NewMetricsService(postgresRepo)
@@ -1139,4 +1132,32 @@ func TestHashValidationMiddlewareIntegration(t *testing.T) {
 		body, _ := io.ReadAll(resp.Body)
 		require.Contains(t, string(body), "Invalid hash", "Error message should indicate invalid hash")
 	})
+}
+
+func truncateTableForTest(ctx context.Context, dsn string) error {
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return err
+	}
+
+	db := stdlib.OpenDB(*config)
+	defer db.Close()
+
+	if err := db.PingContext(ctx); err != nil {
+		return err
+	}
+
+	var exists bool
+	err = db.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'metrics')").Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return nil
+	}
+
+	_, err = db.ExecContext(ctx, "TRUNCATE TABLE metrics")
+	return err
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
@@ -10,6 +11,7 @@ import (
 
 type MemStorage struct {
 	metrics map[string]*model.Metrics
+	mu      sync.RWMutex
 	logger  logger.Logger
 }
 
@@ -26,6 +28,9 @@ func (m *MemStorage) generateKey(metricType, name string) string {
 
 func (m *MemStorage) UpdateMetric(ctx context.Context, metric *model.Metrics) error {
 	key := m.generateKey(metric.MType, metric.ID)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if metric.MType == model.Counter {
 		if existing, exists := m.metrics[key]; exists && existing.Delta != nil {
@@ -59,7 +64,9 @@ func (m *MemStorage) GetMetric(ctx context.Context, metric *model.Metrics) (*mod
 	}
 
 	key := m.generateKey(metric.MType, metric.ID)
+	m.mu.RLock()
 	val, ok := m.metrics[key]
+	m.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("metric %s not found", key)
 	}
@@ -68,10 +75,12 @@ func (m *MemStorage) GetMetric(ctx context.Context, metric *model.Metrics) (*mod
 }
 
 func (m *MemStorage) GetAllMetrics(ctx context.Context) []*model.Metrics {
+	m.mu.RLock()
 	metrics := make([]*model.Metrics, 0, len(m.metrics))
 	for _, metric := range m.metrics {
 		metrics = append(metrics, metric)
 	}
+	m.mu.RUnlock()
 	m.logger.Debugf("Getting all metrics (%d)...", len(metrics))
 	return metrics
 }
