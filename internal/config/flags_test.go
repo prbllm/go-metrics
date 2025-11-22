@@ -57,6 +57,40 @@ func TestParseAgentFlags(t *testing.T) {
 				return cfg
 			},
 		},
+		{
+			name: "Agent rate limit flag",
+			args: []string{"-l", "20"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.RateLimit = 20
+				return cfg
+			},
+		},
+		{
+			name: "Agent flags with rate limit",
+			args: []string{"-a", "localhost:8081", "-p", "3", "-r", "12", "-l", "25"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.ServerHost = "localhost:8081"
+				cfg.AgentPollInterval = 3 * time.Second
+				cfg.AgentReportInterval = 12 * time.Second
+				cfg.RateLimit = 25
+				return cfg
+			},
+		},
+		{
+			name: "Agent flags with all parameters including rate limit",
+			args: []string{"-a", "localhost:8081", "-p", "3", "-r", "12", "-k", "my-secret-key", "-l", "30"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.ServerHost = "localhost:8081"
+				cfg.AgentPollInterval = 3 * time.Second
+				cfg.AgentReportInterval = 12 * time.Second
+				cfg.Key = "my-secret-key"
+				cfg.RateLimit = 30
+				return cfg
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -67,6 +101,7 @@ func TestParseAgentFlags(t *testing.T) {
 			require.Equal(t, expected.AgentPollInterval, got.AgentPollInterval, "AgentPollInterval is not equal to expected")
 			require.Equal(t, expected.AgentReportInterval, got.AgentReportInterval, "AgentReportInterval is not equal to expected")
 			require.Equal(t, expected.Key, got.Key, "Key is not equal to expected")
+			require.Equal(t, expected.RateLimit, got.RateLimit, "RateLimit is not equal to expected")
 		})
 	}
 }

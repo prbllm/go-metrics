@@ -14,6 +14,7 @@ const (
 	DefaultRestore             = false
 	DefaultDatabaseDSN         = ""
 	DefaultKey                 = ""
+	DefaultRateLimit           = 10
 	HTTPRequestTimeout         = 10 * time.Second
 )
 
@@ -38,6 +39,7 @@ const (
 	FileStoragePathFlag         = "f"
 	DatabaseDSNFlag             = "d"
 	KeyFlag                     = "k"
+	RateLimitFlag               = "l"
 )
 
 const (
@@ -49,6 +51,7 @@ const (
 	RestoreDescription         = "Restore from file storage (true/false, default: false)"
 	DatabaseDSNDescription     = "Database connection string (DSN)"
 	KeyDescription             = "Key for hash"
+	RateLimitDescription       = "Rate limit in requests per second (default: 10)"
 )
 
 const (
@@ -61,6 +64,7 @@ const (
 	RestoreEnvVar         = "RESTORE"
 	DatabaseDSNEnvVar     = "DATABASE_DSN"
 	KeyEnvVar             = "KEY"
+	RateLimitEnvVar       = "RATE_LIMIT"
 )
 
 const (

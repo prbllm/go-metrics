@@ -36,6 +36,7 @@ func parseAgentFlags(fs *flag.FlagSet, config *Config, args []string) {
 
 	fs.IntVar(&reportIntervalSec, ReportIntervalOrRestoreFlag, int(config.AgentReportInterval.Seconds()), ReportIntervalDescription)
 	fs.IntVar(&pollIntervalSec, PollIntervalFlag, int(config.AgentPollInterval.Seconds()), PollIntervalDescription)
+	fs.IntVar(&config.RateLimit, RateLimitFlag, config.RateLimit, RateLimitDescription)
 
 	fs.Parse(args)
 

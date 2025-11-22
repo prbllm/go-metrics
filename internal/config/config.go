@@ -20,6 +20,7 @@ type Config struct {
 	Restore         bool
 	DatabaseDSN     string
 	Key             string
+	RateLimit       int
 }
 
 var globalConfig *Config
@@ -34,6 +35,7 @@ func defaultConfig() *Config {
 		Restore:             DefaultRestore,
 		DatabaseDSN:         DefaultDatabaseDSN,
 		Key:                 DefaultKey,
+		RateLimit:           DefaultRateLimit,
 	}
 }
 
@@ -74,6 +76,10 @@ func (c *Config) Validate() error {
 
 	if c.FileStoragePath == "" {
 		return fmt.Errorf("file storage path cannot be empty")
+	}
+
+	if c.RateLimit <= 0 {
+		return fmt.Errorf("rate limit must be positive")
 	}
 
 	return nil
@@ -122,6 +128,13 @@ func (c *Config) loadAgentEnvironmets(logger logger.Logger) {
 		logger.Warnf("failed to get poll interval from environment: %v", err)
 	} else {
 		c.AgentPollInterval = time.Duration(pollInterval) * time.Second
+	}
+
+	rateLimit, err := GetEnvironmentInt(RateLimitEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get rate limit from environment: %v", err)
+	} else {
+		c.RateLimit = rateLimit
 	}
 }
 

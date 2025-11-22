@@ -2,10 +2,12 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestGetEnvironment(t *testing.T) {
@@ -116,6 +118,71 @@ func TestGetEnvironmentInt(t *testing.T) {
 			} else {
 				require.NoError(t, err, "expected no error for valid environment variable")
 				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestLoadAgentEnvironments_RateLimit(t *testing.T) {
+	tests := []struct {
+		name        string
+		envValue    string
+		expected    int
+		expectError bool
+	}{
+		{
+			name:        "valid rate limit",
+			envValue:    "15",
+			expected:    15,
+			expectError: false,
+		},
+		{
+			name:        "invalid rate limit",
+			envValue:    "not_a_number",
+			expected:    10,
+			expectError: true,
+		},
+		{
+			name:        "non-existing rate limit variable",
+			envValue:    "",
+			expected:    10,
+			expectError: true,
+		},
+		{
+			name:        "zero rate limit",
+			envValue:    "0",
+			expected:    0,
+			expectError: false,
+		},
+		{
+			name:        "negative rate limit",
+			envValue:    "-5",
+			expected:    -5,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Unsetenv(RateLimitEnvVar)
+
+			if tt.envValue != "" {
+				os.Setenv(RateLimitEnvVar, tt.envValue)
+				defer os.Unsetenv(RateLimitEnvVar)
+			}
+
+			cfg := defaultConfig()
+			cfg.loadAgentEnvironmets(zaptest.NewLogger(t).Sugar())
+
+			if tt.expectError {
+				if tt.envValue == "" || tt.envValue == "not_a_number" {
+					assert.Equal(t, DefaultRateLimit, cfg.RateLimit, "RateLimit should remain default on error")
+				} else {
+					actualValue, _ := strconv.Atoi(tt.envValue)
+					assert.Equal(t, actualValue, cfg.RateLimit)
+				}
+			} else {
+				assert.Equal(t, tt.expected, cfg.RateLimit, "RateLimit should match expected value")
 			}
 		})
 	}
