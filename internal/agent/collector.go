@@ -1,11 +1,14 @@
 package agent
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"runtime"
 
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 type RuntimeMetricsCollector struct {
@@ -18,7 +21,7 @@ func NewRuntimeMetricsCollector(logger logger.Logger) *RuntimeMetricsCollector {
 	}
 }
 
-func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
+func (c *RuntimeMetricsCollector) CollectRuntimeMetrics() []model.Metrics {
 	c.logger.Debug("Collecting runtime metrics...")
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -58,6 +61,30 @@ func (c *RuntimeMetricsCollector) Collect() []model.Metrics {
 	}
 
 	return metrics
+}
+
+func (c *RuntimeMetricsCollector) CollectGopsutilMetrics() ([]model.Metrics, error) {
+	c.logger.Debug("Collecting gopsutil metrics...")
+	memStats, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
+
+	cpuStats, err := cpu.Percent(0, false)
+	if err != nil {
+		return nil, err
+	}
+
+	metrics := []model.Metrics{
+		{ID: "TotalMemory", MType: model.Gauge, Value: c.ToFloatPointer(memStats.Total)},
+		{ID: "FreeMemory", MType: model.Gauge, Value: c.ToFloatPointer(memStats.Free)},
+	}
+
+	for i, cpuStat := range cpuStats {
+		metrics = append(metrics, model.Metrics{ID: fmt.Sprintf("CPUutilization%d", i), MType: model.Gauge, Value: c.ToFloatPointer(cpuStat)})
+	}
+
+	return metrics, nil
 }
 
 func (c *RuntimeMetricsCollector) ToFloatPointer(number any) *float64 {

@@ -56,7 +56,7 @@ func (a *Agent) Start(context context.Context) {
 				return
 			default:
 			}
-			metrics = a.collector.Collect()
+			metrics = model.CombineMetrics(metrics, a.collector.CollectRuntimeMetrics())
 			time.Sleep(cfg.AgentPollInterval)
 		}
 		err := a.SendMetricsJSON(context, metrics)

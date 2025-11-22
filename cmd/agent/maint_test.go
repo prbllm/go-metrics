@@ -78,7 +78,7 @@ func TestAgentJSONIntegration(t *testing.T) {
 	collector := agent.NewRuntimeMetricsCollector(logger)
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	err := agent.SendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics via JSON")
 
@@ -145,7 +145,7 @@ func TestAgentJSONIntegration_WithHashHeader(t *testing.T) {
 	collector := agent.NewRuntimeMetricsCollector(logger)
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	err := agent.SendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics via JSON")
 
@@ -189,7 +189,7 @@ func TestAgentBatchJSONIntegration(t *testing.T) {
 	collector := agent.NewRuntimeMetricsCollector(logger)
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics batch via JSON")
 
@@ -255,7 +255,7 @@ func TestAgentBatchJSONIntegration_WithHashHeader(t *testing.T) {
 	collector := agent.NewRuntimeMetricsCollector(logger)
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics batch via JSON")
 
@@ -386,7 +386,7 @@ func TestAgentBatchJSONIntegration_RetryOnTemporaryNetworkError(t *testing.T) {
 	collector := agent.NewRuntimeMetricsCollector(logger)
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should succeed after retry")
 
@@ -457,7 +457,7 @@ func TestAgentBatchJSONIntegration_RetryExhausted(t *testing.T) {
 	collector := agent.NewRuntimeMetricsCollector(logger)
 	agent := agent.NewAgent(http.DefaultClient, collector, logger)
 
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
 	require.Error(t, err, "Should return error after retry exhaustion")
 	require.Contains(t, err.Error(), "error sending metrics batch")

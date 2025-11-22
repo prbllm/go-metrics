@@ -970,17 +970,6 @@ func TestBatchUpdatesIntegration(t *testing.T) {
 			dsn = "postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable"
 		}
 
-		pgConfig, err := pgx.ParseConfig(dsn)
-		if err == nil {
-			db := stdlib.OpenDB(*pgConfig)
-			if db != nil {
-				if pingErr := db.Ping(); pingErr == nil {
-					_, _ = db.Exec("TRUNCATE TABLE metrics")
-				}
-				db.Close()
-			}
-		}
-
 		logger := zaptest.NewLogger(t).Sugar()
 		postgresRepo, err := repository.NewPostgresRepository(context.Background(), dsn, logger)
 		if err != nil {
@@ -988,6 +977,18 @@ func TestBatchUpdatesIntegration(t *testing.T) {
 			return
 		}
 		defer postgresRepo.Close()
+
+		pgConfig, err := pgx.ParseConfig(dsn)
+		if err == nil {
+			db := stdlib.OpenDB(*pgConfig)
+			if db != nil {
+				if pingErr := db.Ping(); pingErr == nil {
+					_, _ = db.Exec("DELETE FROM metrics")
+				}
+				db.Close()
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
 
 		metricsService := service.NewMetricsService(postgresRepo)
 		handlers := handler.NewHandlers(metricsService, logger)
