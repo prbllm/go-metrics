@@ -49,7 +49,7 @@ func (s *MetricsService) UpdateMetric(ctx context.Context, metricType, metricNam
 	return s.repository.UpdateMetric(ctx, metric)
 }
 
-func (s *MetricsService) GetAllMetrics(ctx context.Context) ([]*model.Metrics, error) {
+func (s *MetricsService) GetAllMetrics(ctx context.Context) ([]model.Metrics, error) {
 	return s.repository.GetAllMetrics(ctx), nil
 }
 

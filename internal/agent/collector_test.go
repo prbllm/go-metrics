@@ -19,7 +19,7 @@ func getMetricByID(metrics []model.Metrics, id string) *model.Metrics {
 
 func TestCollectorMetrics(t *testing.T) {
 	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 	require.NotNil(t, metrics, "Metrics is nil")
 	require.NotEmpty(t, metrics, "Metrics is empty")
 
@@ -64,7 +64,7 @@ func TestCollectorMetrics(t *testing.T) {
 
 func TestCollectorMetricsPollCountType(t *testing.T) {
 	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 
 	const metricName = "PollCount"
 	const expectedDelta = int64(1)
@@ -73,7 +73,7 @@ func TestCollectorMetricsPollCountType(t *testing.T) {
 	require.Equal(t, model.Counter, pollCount.MType)
 	require.Equal(t, expectedDelta, *pollCount.Delta)
 
-	metrics = collector.Collect()
+	metrics = collector.CollectRuntimeMetrics()
 	pollCount = getMetricByID(metrics, metricName)
 	require.Equal(t, model.Counter, pollCount.MType)
 	require.Equal(t, expectedDelta, *pollCount.Delta)
@@ -81,7 +81,7 @@ func TestCollectorMetricsPollCountType(t *testing.T) {
 
 func TestCollectorMetricsRandomValueType(t *testing.T) {
 	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
-	metrics := collector.Collect()
+	metrics := collector.CollectRuntimeMetrics()
 
 	const metricName = "RandomValue"
 
@@ -90,8 +90,16 @@ func TestCollectorMetricsRandomValueType(t *testing.T) {
 	require.NotNil(t, metric.Value)
 	randomValue := *metric.Value
 
-	metrics = collector.Collect()
+	metrics = collector.CollectRuntimeMetrics()
 	metric = getMetricByID(metrics, metricName)
 	require.NotNil(t, metric.Value)
 	require.NotEqual(t, randomValue, *metric.Value)
+}
+
+func TestCollectorMetricsGopsutilMetrics(t *testing.T) {
+	collector := RuntimeMetricsCollector{zaptest.NewLogger(t).Sugar()}
+	metrics, err := collector.CollectGopsutilMetrics()
+	require.NoError(t, err)
+	require.NotNil(t, metrics)
+	require.NotEmpty(t, metrics)
 }

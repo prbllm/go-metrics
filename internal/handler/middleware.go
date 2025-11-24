@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/logger"
 )
 
@@ -94,4 +95,69 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 
 func (w *gzipResponseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func HashValidationMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hashHeader := r.Header.Get(config.HashSHA256Header)
+			if hashHeader != "" {
+				bodyBytes, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+				hashActual := hash.ComputeHash(config.GetConfig().Key, bodyBytes)
+				if hashActual != hashHeader {
+					http.Error(w, "Invalid hash", http.StatusBadRequest)
+					return
+				}
+			}
+
+			bufferingRecorder := newBufferingRecorder()
+			next.ServeHTTP(bufferingRecorder, r)
+
+			respBytes := bufferingRecorder.body.Bytes()
+			respHash := hash.ComputeHash(config.GetConfig().Key, respBytes)
+			bufferingRecorder.Header().Set(config.HashSHA256Header, respHash)
+			bufferingRecorder.FlushTo(w)
+		})
+	}
+}
+
+type bufferingRecorder struct {
+	header http.Header
+	status int
+	body   bytes.Buffer
+}
+
+func newBufferingRecorder() *bufferingRecorder {
+	return &bufferingRecorder{
+		header: make(http.Header),
+	}
+}
+
+func (br *bufferingRecorder) Header() http.Header {
+	return br.header
+}
+
+func (br *bufferingRecorder) WriteHeader(code int) {
+	br.status = code
+}
+
+func (br *bufferingRecorder) Write(p []byte) (int, error) {
+	return br.body.Write(p)
+}
+
+func (br *bufferingRecorder) FlushTo(w http.ResponseWriter) error {
+	for k, vv := range br.header {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(br.status)
+	_, err := w.Write(br.body.Bytes())
+	return err
 }

@@ -154,7 +154,7 @@ func TestStoragePriority_CounterAccumulation_PostgreSQL(t *testing.T) {
 	require.Equal(t, int64(12), *retrieved.Delta, "Counter should accumulate values (5+7=12)")
 }
 
-func getTestDBForCleanup(t *testing.T, dsn string) *sql.DB {
+func getTestDBForCleanup(_ *testing.T, dsn string) *sql.DB {
 	config, err := pgx.ParseConfig(dsn)
 	if err != nil {
 		return nil

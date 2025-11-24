@@ -19,6 +19,8 @@ type Config struct {
 	FileStoragePath string
 	Restore         bool
 	DatabaseDSN     string
+	Key             string
+	RateLimit       int
 }
 
 var globalConfig *Config
@@ -32,6 +34,8 @@ func defaultConfig() *Config {
 		FileStoragePath:     DefaultFileStoragePath,
 		Restore:             DefaultRestore,
 		DatabaseDSN:         DefaultDatabaseDSN,
+		Key:                 DefaultKey,
+		RateLimit:           DefaultRateLimit,
 	}
 }
 
@@ -74,12 +78,16 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("file storage path cannot be empty")
 	}
 
+	if c.RateLimit <= 0 {
+		return fmt.Errorf("rate limit must be positive")
+	}
+
 	return nil
 }
 
 func (c *Config) String() string {
-	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s}",
-		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN)
+	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s, Key: %s}",
+		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN, c.Key)
 }
 
 func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
@@ -88,6 +96,13 @@ func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
 		logger.Warnf("failed to get server host from environment: %v", err)
 	} else {
 		c.ServerHost = address
+	}
+
+	key, err := GetEnvironment(KeyEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get key from environment: %v", err)
+	} else {
+		c.Key = key
 	}
 
 	switch flagsetName {
@@ -113,6 +128,13 @@ func (c *Config) loadAgentEnvironmets(logger logger.Logger) {
 		logger.Warnf("failed to get poll interval from environment: %v", err)
 	} else {
 		c.AgentPollInterval = time.Duration(pollInterval) * time.Second
+	}
+
+	rateLimit, err := GetEnvironmentInt(RateLimitEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get rate limit from environment: %v", err)
+	} else {
+		c.RateLimit = rateLimit
 	}
 }
 

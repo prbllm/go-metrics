@@ -16,6 +16,7 @@ func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorH
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
 
 	fs.StringVar(&config.ServerHost, ServerHostFlag, config.ServerHost, ServerHostDescription)
+	fs.StringVar(&config.Key, KeyFlag, config.Key, KeyDescription)
 
 	switch flagsetName {
 	case AgentFlagsSet:
@@ -35,6 +36,7 @@ func parseAgentFlags(fs *flag.FlagSet, config *Config, args []string) {
 
 	fs.IntVar(&reportIntervalSec, ReportIntervalOrRestoreFlag, int(config.AgentReportInterval.Seconds()), ReportIntervalDescription)
 	fs.IntVar(&pollIntervalSec, PollIntervalFlag, int(config.AgentPollInterval.Seconds()), PollIntervalDescription)
+	fs.IntVar(&config.RateLimit, RateLimitFlag, config.RateLimit, RateLimitDescription)
 
 	fs.Parse(args)
 

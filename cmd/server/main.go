@@ -84,7 +84,7 @@ func main() {
 	handlers := handler.NewHandlers(metricsService, appLogger)
 	router := chi.NewRouter()
 
-	router.Use(handler.LoggingMiddleware(appLogger), handler.GzipDecompressMiddleware(appLogger))
+	router.Use(handler.LoggingMiddleware(appLogger), handler.GzipDecompressMiddleware(appLogger), handler.HashValidationMiddleware(appLogger))
 
 	router.Get(config.PingPath, handlers.PingHandler)
 

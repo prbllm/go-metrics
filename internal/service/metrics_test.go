@@ -213,7 +213,7 @@ func TestMetricsService_GetAllMetrics_RepositoryCall(t *testing.T) {
 	mockRepo := mocks.NewMockMetricsRepository(ctrl)
 	service := NewMetricsService(mockRepo)
 
-	expectedMetrics := []*model.Metrics{
+	expectedMetrics := []model.Metrics{
 		{ID: "test1", MType: model.Gauge, Value: func() *float64 { v := 1.5; return &v }()},
 		{ID: "test2", MType: model.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
 	}
