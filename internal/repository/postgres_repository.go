@@ -308,10 +308,10 @@ func (p *PostgresRepository) GetMetric(ctx context.Context, metric *model.Metric
 	return result, nil
 }
 
-func (p *PostgresRepository) GetAllMetrics(ctx context.Context) []*model.Metrics {
+func (p *PostgresRepository) GetAllMetrics(ctx context.Context) []model.Metrics {
 	p.logger.Debugf("PostgresRepository.GetAllMetrics called")
 
-	var metrics []*model.Metrics
+	var metrics []model.Metrics
 
 	err := retry.RetryWithBackoff(ctx, p.logger, retry.IsRetriablePostgresError, func() error {
 		rows, queryErr := p.getAllMetricsStmt.QueryContext(ctx)
@@ -321,7 +321,7 @@ func (p *PostgresRepository) GetAllMetrics(ctx context.Context) []*model.Metrics
 		}
 		defer rows.Close()
 
-		metrics = make([]*model.Metrics, 0)
+		metrics = make([]model.Metrics, 0)
 
 		for rows.Next() {
 			var id, mType string
@@ -346,7 +346,7 @@ func (p *PostgresRepository) GetAllMetrics(ctx context.Context) []*model.Metrics
 				metric.Value = &value.Float64
 			}
 
-			metrics = append(metrics, metric)
+			metrics = append(metrics, *metric)
 		}
 
 		if err := rows.Err(); err != nil {
@@ -359,7 +359,7 @@ func (p *PostgresRepository) GetAllMetrics(ctx context.Context) []*model.Metrics
 
 	if err != nil {
 		p.logger.Errorf("Failed to get all metrics after retries: %v", err)
-		return []*model.Metrics{}
+		return []model.Metrics{}
 	}
 
 	p.logger.Debugf("Retrieved %d metrics from database", len(metrics))

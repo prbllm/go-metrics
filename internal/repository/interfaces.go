@@ -12,6 +12,6 @@ type MetricsRepository interface {
 	UpdateMetric(ctx context.Context, metric *model.Metrics) error
 	UpdateMetricsBatch(ctx context.Context, metrics []*model.Metrics) error
 	GetMetric(ctx context.Context, metric *model.Metrics) (*model.Metrics, error)
-	GetAllMetrics(ctx context.Context) []*model.Metrics
+	GetAllMetrics(ctx context.Context) []model.Metrics
 	Ping(ctx context.Context) error
 }

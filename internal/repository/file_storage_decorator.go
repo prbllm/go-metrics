@@ -58,7 +58,7 @@ func (f *FileStorageDecorator) GetMetric(ctx context.Context, metric *model.Metr
 	return f.memStorage.GetMetric(ctx, metric)
 }
 
-func (f *FileStorageDecorator) GetAllMetrics(ctx context.Context) []*model.Metrics {
+func (f *FileStorageDecorator) GetAllMetrics(ctx context.Context) []model.Metrics {
 	return f.memStorage.GetAllMetrics(ctx)
 }
 

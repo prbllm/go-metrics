@@ -13,6 +13,6 @@ type Service interface {
 	UpdateMetricByStruct(ctx context.Context, metric *model.Metrics) error
 	UpdateMetricsBatchByStruct(ctx context.Context, metrics []*model.Metrics) error
 	GetMetric(ctx context.Context, metricType, metricName string) (*model.Metrics, error)
-	GetAllMetrics(ctx context.Context) ([]*model.Metrics, error)
+	GetAllMetrics(ctx context.Context) ([]model.Metrics, error)
 	Ping(ctx context.Context) error
 }

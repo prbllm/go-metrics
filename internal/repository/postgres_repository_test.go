@@ -284,7 +284,7 @@ func TestPostgresRepository_GetAllMetrics_WithData(t *testing.T) {
 	metricMap := make(map[string]*model.Metrics)
 	for _, m := range metrics {
 		key := m.ID + ":" + m.MType
-		metricMap[key] = m
+		metricMap[key] = &m
 	}
 
 	require.Contains(t, metricMap, "counter1:counter", "Should contain counter1")

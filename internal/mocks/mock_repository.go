@@ -42,10 +42,10 @@ func (m *MockMetricsRepository) EXPECT() *MockMetricsRepositoryMockRecorder {
 }
 
 // GetAllMetrics mocks base method.
-func (m *MockMetricsRepository) GetAllMetrics(ctx context.Context) []*model.Metrics {
+func (m *MockMetricsRepository) GetAllMetrics(ctx context.Context) []model.Metrics {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllMetrics", ctx)
-	ret0, _ := ret[0].([]*model.Metrics)
+	ret0, _ := ret[0].([]model.Metrics)
 	return ret0
 }
 

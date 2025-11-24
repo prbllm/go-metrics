@@ -162,7 +162,7 @@ func TestGetAllMetricsHandler(t *testing.T) {
 
 			mockService := mocks.NewMockService(ctrl)
 			if test.method == http.MethodGet && test.expectedStatusCode == http.StatusOK {
-				mockService.EXPECT().GetAllMetrics(gomock.Any()).Return([]*model.Metrics{}, nil).AnyTimes()
+				mockService.EXPECT().GetAllMetrics(gomock.Any()).Return([]model.Metrics{}, nil).AnyTimes()
 			}
 
 			handlers := NewHandlers(mockService, zaptest.NewLogger(t).Sugar())

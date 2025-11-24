@@ -74,11 +74,11 @@ func (m *MemStorage) GetMetric(ctx context.Context, metric *model.Metrics) (*mod
 	return val, nil
 }
 
-func (m *MemStorage) GetAllMetrics(ctx context.Context) []*model.Metrics {
+func (m *MemStorage) GetAllMetrics(ctx context.Context) []model.Metrics {
 	m.mu.RLock()
-	metrics := make([]*model.Metrics, 0, len(m.metrics))
+	metrics := make([]model.Metrics, 0, len(m.metrics))
 	for _, metric := range m.metrics {
-		metrics = append(metrics, metric)
+		metrics = append(metrics, *metric)
 	}
 	m.mu.RUnlock()
 	m.logger.Debugf("Getting all metrics (%d)...", len(metrics))
