@@ -167,8 +167,34 @@ func TestParseServerFlags(t *testing.T) {
 			},
 		},
 		{
+			name: "Audit file flag",
+			args: []string{"--audit-file", "/tmp/audit.log"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.AuditFile = "/tmp/audit.log"
+				return cfg
+			},
+		},
+		{
+			name: "Audit URL flag",
+			args: []string{"--audit-url", "http://localhost:8080/audit"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.AuditURL = "http://localhost:8080/audit"
+				return cfg
+			},
+		},
+		{
 			name: "Server flags combined",
-			args: []string{"-a", "localhost:8081", "-i", "60", "-f", "/tmp/metrics.json", "-r", "true", "-d", "postgres://user:pass@localhost/db"},
+			args: []string{"-a",
+				"localhost:8081",
+				"-i", "60",
+				"-f", "/tmp/metrics.json",
+				"-r", "true",
+				"-d", "postgres://user:pass@localhost/db",
+				"--audit-file", "/tmp/audit.log",
+				"--audit-url", "http://localhost:8080/audit",
+			},
 			expected: func() Config {
 				cfg := *defaultConfig()
 				cfg.ServerHost = "localhost:8081"
@@ -176,6 +202,8 @@ func TestParseServerFlags(t *testing.T) {
 				cfg.FileStoragePath = "/tmp/metrics.json"
 				cfg.Restore = true
 				cfg.DatabaseDSN = "postgres://user:pass@localhost/db"
+				cfg.AuditFile = "/tmp/audit.log"
+				cfg.AuditURL = "http://localhost:8080/audit"
 				return cfg
 			},
 		},
@@ -221,6 +249,8 @@ func TestParseServerFlags(t *testing.T) {
 			require.Equal(t, expected.Restore, got.Restore, "Restore is not equal to expected")
 			require.Equal(t, expected.DatabaseDSN, got.DatabaseDSN, "DatabaseDSN is not equal to expected")
 			require.Equal(t, expected.Key, got.Key, "Key is not equal to expected")
+			require.Equal(t, expected.AuditFile, got.AuditFile, "AuditFile is not equal to expected")
+			require.Equal(t, expected.AuditURL, got.AuditURL, "AuditURL is not equal to expected")
 		})
 	}
 }

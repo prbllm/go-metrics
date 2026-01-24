@@ -16,6 +16,10 @@ const (
 	DefaultKey                 = ""
 	DefaultRateLimit           = 10
 	HTTPRequestTimeout         = 10 * time.Second
+	DefaultAuditFile           = ""
+	DefaultAuditURL            = ""
+	AuditEventChannelBuffer    = 100
+	AuditWorkerPoolSize        = 5
 )
 
 const (
@@ -40,6 +44,8 @@ const (
 	DatabaseDSNFlag             = "d"
 	KeyFlag                     = "k"
 	RateLimitFlag               = "l"
+	AuditFileFlag               = "audit-file"
+	AuditURLFlag                = "audit-url"
 )
 
 const (
@@ -52,6 +58,8 @@ const (
 	DatabaseDSNDescription     = "Database connection string (DSN)"
 	KeyDescription             = "Key for hash"
 	RateLimitDescription       = "Rate limit in requests per second (default: 10)"
+	AuditFileDescription       = "Audit file path (default: empty)"
+	AuditURLDescription        = "Audit URL (default: empty)"
 )
 
 const (
@@ -65,6 +73,8 @@ const (
 	DatabaseDSNEnvVar     = "DATABASE_DSN"
 	KeyEnvVar             = "KEY"
 	RateLimitEnvVar       = "RATE_LIMIT"
+	AuditFileEnvVar       = "AUDIT_FILE"
+	AuditURLEnvVar        = "AUDIT_URL"
 )
 
 const (

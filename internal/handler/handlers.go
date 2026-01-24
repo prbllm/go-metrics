@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
@@ -31,6 +32,7 @@ func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Reque
 	}
 
 	ctx := r.Context()
+	ctx = audit.WithClientIP(ctx, r.RemoteAddr)
 
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
@@ -74,6 +76,7 @@ func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Requ
 	}
 
 	ctx := r.Context()
+	ctx = audit.WithClientIP(ctx, r.RemoteAddr)
 
 	if contentType := r.Header.Get(config.ContentTypeHeader); contentType != config.ContentTypeJSON {
 		http.Error(w, "Invalid content type", http.StatusBadRequest)
@@ -111,6 +114,7 @@ func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	ctx := r.Context()
+	ctx = audit.WithClientIP(ctx, r.RemoteAddr)
 
 	contentType := r.Header.Get(config.ContentTypeHeader)
 	h.logger.Debugf("Content-Type header: %s", contentType)

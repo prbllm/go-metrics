@@ -16,9 +16,16 @@ type WorkerPool struct {
 }
 
 func NewWorkerPool(workers int) *WorkerPool {
+	return NewWorkerPoolWithQueueSize(workers, workers)
+}
+
+func NewWorkerPoolWithQueueSize(workers int, queueSize int) *WorkerPool {
+	if queueSize <= 0 {
+		queueSize = workers
+	}
 	return &WorkerPool{
 		workers: workers,
-		queue:   make(chan func() error, workers),
+		queue:   make(chan func() error, queueSize),
 		errChan: make(chan error, workers),
 	}
 }

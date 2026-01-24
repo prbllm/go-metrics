@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
 	"github.com/prbllm/go-metrics/internal/logger"
@@ -81,6 +82,22 @@ func main() {
 
 	metricsService := service.NewMetricsService(metricsRepository)
 
+	var observers []audit.MetricsObserver
+
+	if cfg.AuditFile != "" {
+		fileObserver := audit.NewFileAuditObserver(ctx, cfg.AuditFile, appLogger)
+		metricsService.RegisterObserver(fileObserver)
+		observers = append(observers, fileObserver)
+		appLogger.Infof("File audit observer registered: %s", cfg.AuditFile)
+	}
+
+	if cfg.AuditURL != "" {
+		urlObserver := audit.NewURLAuditObserver(ctx, cfg.AuditURL, appLogger)
+		metricsService.RegisterObserver(urlObserver)
+		observers = append(observers, urlObserver)
+		appLogger.Infof("URL audit observer registered: %s", cfg.AuditURL)
+	}
+
 	handlers := handler.NewHandlers(metricsService, appLogger)
 	router := chi.NewRouter()
 
@@ -133,6 +150,15 @@ func main() {
 		appLogger.Errorf("Server forced to shutdown: %v", err)
 	} else {
 		appLogger.Info("Server exited gracefully")
+	}
+
+	for _, observer := range observers {
+		if observer != nil {
+			observer.Close()
+		}
+	}
+	if len(observers) > 0 {
+		appLogger.Info("All audit observers closed")
 	}
 
 	if pgRepo, ok := metricsRepository.(*repository.PostgresRepository); ok {

@@ -21,6 +21,8 @@ type Config struct {
 	DatabaseDSN     string
 	Key             string
 	RateLimit       int
+	AuditFile       string
+	AuditURL        string
 }
 
 var globalConfig *Config
@@ -36,6 +38,8 @@ func defaultConfig() *Config {
 		DatabaseDSN:         DefaultDatabaseDSN,
 		Key:                 DefaultKey,
 		RateLimit:           DefaultRateLimit,
+		AuditFile:           DefaultAuditFile,
+		AuditURL:            DefaultAuditURL,
 	}
 }
 
@@ -169,5 +173,19 @@ func (c *Config) loadServerEnvironmets(logger logger.Logger) {
 		logger.Warnf("failed to get database DSN from environment: %v", err)
 	} else {
 		c.DatabaseDSN = databaseDSN
+	}
+
+	auditFile, err := GetEnvironment(AuditFileEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get audit file from environment: %v", err)
+	} else {
+		c.AuditFile = auditFile
+	}
+
+	auditURL, err := GetEnvironment(AuditURLEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get audit URL from environment: %v", err)
+	} else {
+		c.AuditURL = auditURL
 	}
 }

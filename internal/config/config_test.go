@@ -12,7 +12,18 @@ import (
 )
 
 func cleanupEnvironment() {
-	envVars := []string{AddressEnvVar, ReportIntervalEnvVar, PollIntervalEnvVar, StoreIntervalEnvVar, FileStoragePathEnvVar, RestoreEnvVar, DatabaseDSNEnvVar, KeyEnvVar}
+	envVars := []string{AddressEnvVar,
+		ReportIntervalEnvVar,
+		PollIntervalEnvVar,
+		StoreIntervalEnvVar,
+		FileStoragePathEnvVar,
+		RestoreEnvVar,
+		DatabaseDSNEnvVar,
+		KeyEnvVar,
+		RateLimitEnvVar,
+		AuditFileEnvVar,
+		AuditURLEnvVar,
+	}
 	for _, envVar := range envVars {
 		os.Unsetenv(envVar)
 	}
@@ -35,6 +46,8 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				RestoreEnvVar:         "true",
 				DatabaseDSNEnvVar:     "postgres://user:pass@localhost/db",
 				KeyEnvVar:             "env-key-123",
+				AuditFileEnvVar:       "/tmp/env-audit.log",
+				AuditURLEnvVar:        "http://localhost:8080/audit",
 			},
 			expectedConfig: Config{
 				ServerHost:          "env-server:9090",
@@ -45,6 +58,8 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				Restore:             true,
 				DatabaseDSN:         "postgres://user:pass@localhost/db",
 				Key:                 "env-key-123",
+				AuditFile:           "/tmp/env-audit.log",
+				AuditURL:            "http://localhost:8080/audit",
 			},
 		},
 		{
@@ -60,6 +75,8 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 		},
 		{
@@ -73,6 +90,8 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 		},
 	}
@@ -98,6 +117,8 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 			assert.Equal(t, tt.expectedConfig.Restore, config.Restore, "Restore is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.DatabaseDSN, config.DatabaseDSN, "DatabaseDSN is not equal to expected")
 			assert.Equal(t, tt.expectedConfig.Key, config.Key, "Key is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.AuditFile, config.AuditFile, "AuditFile is not equal to expected")
+			assert.Equal(t, tt.expectedConfig.AuditURL, config.AuditURL, "AuditURL is not equal to expected")
 		})
 	}
 }
@@ -128,6 +149,8 @@ func TestConfigPriorityAgent(t *testing.T) {
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
 				Key:                 "env-key-789",
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Environment variables should override command line flags for agent",
 		},
@@ -144,6 +167,8 @@ func TestConfigPriorityAgent(t *testing.T) {
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
 				Key:                 "flag-key-123",
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Command line flags should override defaults when no env vars for agent",
 		},
@@ -159,6 +184,8 @@ func TestConfigPriorityAgent(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Default values when no flags or environment variables for agent",
 		},
@@ -179,6 +206,8 @@ func TestConfigPriorityAgent(t *testing.T) {
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
 				Key:                 "env-key-mixed",
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Mixed priority - environment for address and poll interval, flags for report interval",
 		},
@@ -205,6 +234,8 @@ func TestConfigPriorityAgent(t *testing.T) {
 				"AgentPollInterval: %s", tt.description)
 			assert.Equal(t, tt.expected.Key, config.Key,
 				"Key: %s", tt.description)
+			assert.Equal(t, tt.expected.AuditFile, config.AuditFile, "AuditFile is not equal to expected")
+			assert.Equal(t, tt.expected.AuditURL, config.AuditURL, "AuditURL is not equal to expected")
 		})
 	}
 }
@@ -226,8 +257,18 @@ func TestConfigPriorityServer(t *testing.T) {
 				RestoreEnvVar:         "true",
 				DatabaseDSNEnvVar:     "postgres://env:pass@localhost/db",
 				KeyEnvVar:             "env-server-key-999",
+				AuditFileEnvVar:       "/tmp/env-audit.log",
+				AuditURLEnvVar:        "http://localhost:8080/audit",
 			},
-			flags: []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "false", "-d", "postgres://flag:pass@localhost/db", "-k", "flag-server-key-888"},
+			flags: []string{"-a", "flag-server:8080",
+				"-i", "30",
+				"-f", "/tmp/flag-metrics.json",
+				"-r", "false",
+				"-d", "postgres://flag:pass@localhost/db",
+				"-k", "flag-server-key-888",
+				"--audit-file", "/tmp/flag-audit.log",
+				"--audit-url", "http://localhost:8080/audit",
+			},
 			expected: Config{
 				ServerHost:          "env-server:9090",
 				AgentReportInterval: DefaultAgentReportInterval,
@@ -237,13 +278,23 @@ func TestConfigPriorityServer(t *testing.T) {
 				Restore:             true,
 				DatabaseDSN:         "postgres://env:pass@localhost/db",
 				Key:                 "env-server-key-999",
+				AuditFile:           "/tmp/env-audit.log",
+				AuditURL:            "http://localhost:8080/audit",
 			},
 			description: "Environment variables should override command line flags for server",
 		},
 		{
 			name:    "flags override defaults",
 			envVars: map[string]string{},
-			flags:   []string{"-a", "flag-server:8080", "-i", "30", "-f", "/tmp/flag-metrics.json", "-r", "true", "-d", "postgres://flag:pass@localhost/db", "-k", "flag-server-key-777"},
+			flags: []string{"-a", "flag-server:8080",
+				"-i", "30",
+				"-f", "/tmp/flag-metrics.json",
+				"-r", "true",
+				"-d", "postgres://flag:pass@localhost/db",
+				"-k", "flag-server-key-777",
+				"--audit-file", "/tmp/flag-audit.log",
+				"--audit-url", "http://localhost:8080/audit",
+			},
 			expected: Config{
 				ServerHost:          "flag-server:8080",
 				AgentReportInterval: DefaultAgentReportInterval,
@@ -253,6 +304,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				Restore:             true,
 				DatabaseDSN:         "postgres://flag:pass@localhost/db",
 				Key:                 "flag-server-key-777",
+				AuditFile:           "/tmp/flag-audit.log",
+				AuditURL:            "http://localhost:8080/audit",
 			},
 			description: "Command line flags should override defaults when no env vars for server",
 		},
@@ -268,6 +321,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             DefaultRestore,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Default values when no flags or environment variables for server",
 		},
@@ -277,6 +332,7 @@ func TestConfigPriorityServer(t *testing.T) {
 				AddressEnvVar:         "env-server:9090",
 				FileStoragePathEnvVar: "/tmp/env-metrics.json",
 				KeyEnvVar:             "env-server-key-mixed",
+				AuditFileEnvVar:       "/tmp/env-audit.log",
 			},
 			flags: []string{"-i", "30", "-r", "true"},
 			expected: Config{
@@ -288,6 +344,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				Restore:             true,
 				DatabaseDSN:         DefaultDatabaseDSN,
 				Key:                 "env-server-key-mixed",
+				AuditFile:           "/tmp/env-audit.log",
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Mixed priority - environment for address and file path, flags for store interval and restore",
 		},
@@ -303,6 +361,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				FileStoragePath:     DefaultFileStoragePath,
 				Restore:             true,
 				DatabaseDSN:         DefaultDatabaseDSN,
+				AuditFile:           DefaultAuditFile,
+				AuditURL:            DefaultAuditURL,
 			},
 			description: "Restore flag without value should be interpreted as true for server",
 		},
@@ -332,6 +392,8 @@ func TestConfigPriorityServer(t *testing.T) {
 				"DatabaseDSN: %s", tt.description)
 			assert.Equal(t, tt.expected.Key, config.Key,
 				"Key: %s", tt.description)
+			assert.Equal(t, tt.expected.AuditFile, config.AuditFile, tt.description)
+			assert.Equal(t, tt.expected.AuditURL, config.AuditURL, tt.description)
 		})
 	}
 }
