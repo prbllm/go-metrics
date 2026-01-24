@@ -9,16 +9,16 @@ import (
 
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/logger"
-	"github.com/prbllm/go-metrics/internal/threading"
 )
 
 type FileAuditObserver struct {
 	filePath string
 	logger   logger.Logger
-	pool     *threading.WorkerPool
 	ctx      context.Context
 	cancel   context.CancelFunc
 	once     sync.Once
+	eventCh  chan AuditEvent
+	writerWg sync.WaitGroup
 	errWg    sync.WaitGroup
 }
 
@@ -27,12 +27,14 @@ func NewFileAuditObserver(ctx context.Context, filePath string, logger logger.Lo
 	observer := &FileAuditObserver{
 		filePath: filePath,
 		logger:   logger,
-		pool:     threading.NewWorkerPoolWithQueueSize(config.AuditWorkerPoolSize, config.AuditEventChannelBuffer),
 		ctx:      observerCtx,
 		cancel:   cancel,
+		eventCh:  make(chan AuditEvent, config.AuditEventChannelBuffer),
 	}
 
-	observer.pool.Start(observerCtx)
+	observer.writerWg.Add(1)
+	go observer.writerLoop(observerCtx)
+
 	observer.errWg.Add(1)
 	go observer.handleErrors(observerCtx)
 
@@ -48,45 +50,61 @@ func (f *FileAuditObserver) Process(ctx context.Context, event AuditEvent) {
 		f.logger.Debugf("FileAuditObserver: request context cancelled, dropping event")
 		return
 	default:
-		eventCopy := event
-		f.pool.AddJob(func() error {
-			return f.writeEvent(eventCopy)
-		})
+		if event.Timestamp == 0 {
+			event.Timestamp = time.Now().Unix()
+		}
+		select {
+		case f.eventCh <- event:
+		case <-f.ctx.Done():
+			f.logger.Debugf("FileAuditObserver: observer context cancelled, dropping event")
+		case <-ctx.Done():
+			f.logger.Debugf("FileAuditObserver: request context cancelled, dropping event")
+		}
 	}
 }
 
-func (f *FileAuditObserver) handleErrors(ctx context.Context) {
-	defer f.errWg.Done()
+func (f *FileAuditObserver) writerLoop(ctx context.Context) {
+	defer f.writerWg.Done()
+
+	file, err := os.OpenFile(f.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		f.logger.Errorf("FileAuditObserver: failed to open file: %v", err)
+		return
+	}
+	defer file.Close()
+
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case err, ok := <-f.pool.Errors():
+			for {
+				select {
+				case event, ok := <-f.eventCh:
+					if !ok {
+						return
+					}
+					if err := f.writeEvent(file, event); err != nil {
+						f.logger.Errorf("FileAuditObserver: failed to write audit event: %v", err)
+					}
+				default:
+					return
+				}
+			}
+		case event, ok := <-f.eventCh:
 			if !ok {
 				return
 			}
-			if err != nil {
+			if err := f.writeEvent(file, event); err != nil {
 				f.logger.Errorf("FileAuditObserver: failed to write audit event: %v", err)
 			}
 		}
 	}
 }
 
-func (f *FileAuditObserver) writeEvent(event AuditEvent) error {
-	if event.Timestamp == 0 {
-		event.Timestamp = time.Now().Unix()
-	}
-
+func (f *FileAuditObserver) writeEvent(file *os.File, event AuditEvent) error {
 	jsonData, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-
-	file, err := os.OpenFile(f.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
 
 	if _, err := file.Write(jsonData); err != nil {
 		return err
@@ -98,14 +116,28 @@ func (f *FileAuditObserver) writeEvent(event AuditEvent) error {
 	return nil
 }
 
+func (f *FileAuditObserver) handleErrors(ctx context.Context) {
+	defer f.errWg.Done()
+	<-ctx.Done()
+}
+
 func (f *FileAuditObserver) Close() {
 	f.once.Do(func() {
 		if f.cancel != nil {
 			f.cancel()
 		}
-		if f.pool != nil {
-			f.pool.Stop()
+		done := make(chan struct{})
+		go func() {
+			f.writerWg.Wait()
+			close(f.eventCh)
+			f.errWg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			f.logger.Warnf("FileAuditObserver: Close() timed out waiting for goroutines")
+			close(f.eventCh)
 		}
-		f.errWg.Wait()
 	})
 }

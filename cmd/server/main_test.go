@@ -9,11 +9,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
@@ -1131,6 +1134,273 @@ func TestHashValidationMiddlewareIntegration(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode, "Request should fail with invalid hash")
 		body, _ := io.ReadAll(resp.Body)
 		require.Contains(t, string(body), "Invalid hash", "Error message should indicate invalid hash")
+	})
+}
+
+func TestServerAuditIntegration(t *testing.T) {
+	t.Run("file audit observer integration", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "audit_integration_*.jsonl")
+		require.NoError(t, err)
+		defer os.Remove(tempFile.Name())
+		tempFile.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+
+		ctx := context.Background()
+		fileObserver := audit.NewFileAuditObserver(ctx, tempFile.Name(), logger)
+		metricsService.RegisterObserver(fileObserver)
+		defer fileObserver.Close()
+
+		handlers := handler.NewHandlers(metricsService, logger)
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatePath, func(r chi.Router) {
+				r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
+				r.Post("/", handlers.UpdateMetricHandlerByJSON)
+			})
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/audit_test_counter/10", nil)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "text/plain")
+		req.RemoteAddr = "192.168.1.100:12345"
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close()
+
+		time.Sleep(200 * time.Millisecond)
+		fileObserver.Close()
+
+		content, err := os.ReadFile(tempFile.Name())
+		require.NoError(t, err)
+		require.NotEmpty(t, content)
+
+		var auditEvent audit.AuditEvent
+		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+		require.Len(t, lines, 1)
+
+		err = json.Unmarshal([]byte(lines[0]), &auditEvent)
+		require.NoError(t, err)
+		require.Contains(t, auditEvent.MetricsIDs, "audit_test_counter")
+		require.NotEmpty(t, auditEvent.IPAddress)
+		require.NotZero(t, auditEvent.Timestamp)
+	})
+
+	t.Run("url audit observer integration", func(t *testing.T) {
+		var receivedEvents []audit.AuditEvent
+		var mu sync.Mutex
+
+		auditServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, http.MethodPost, r.Method)
+			require.Equal(t, config.ContentTypeJSON, r.Header.Get(config.ContentTypeHeader))
+
+			var event audit.AuditEvent
+			err := json.NewDecoder(r.Body).Decode(&event)
+			require.NoError(t, err)
+
+			mu.Lock()
+			receivedEvents = append(receivedEvents, event)
+			mu.Unlock()
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer auditServer.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+
+		ctx := context.Background()
+		urlObserver, err := audit.NewURLAuditObserver(ctx, auditServer.URL, logger)
+		require.NoError(t, err)
+		metricsService.RegisterObserver(urlObserver)
+		defer urlObserver.Close()
+
+		handlers := handler.NewHandlers(metricsService, logger)
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatePath, func(r chi.Router) {
+				r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/update/gauge/audit_test_gauge/42.5", nil)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "text/plain")
+		req.RemoteAddr = "10.0.0.1:54321"
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close()
+
+		time.Sleep(300 * time.Millisecond)
+		urlObserver.Close()
+
+		mu.Lock()
+		require.Len(t, receivedEvents, 1)
+		require.Contains(t, receivedEvents[0].MetricsIDs, "audit_test_gauge")
+		require.NotEmpty(t, receivedEvents[0].IPAddress)
+		require.NotZero(t, receivedEvents[0].Timestamp)
+		mu.Unlock()
+	})
+
+	t.Run("batch update with file audit", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "audit_batch_*.jsonl")
+		require.NoError(t, err)
+		defer os.Remove(tempFile.Name())
+		tempFile.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+
+		ctx := context.Background()
+		fileObserver := audit.NewFileAuditObserver(ctx, tempFile.Name(), logger)
+		metricsService.RegisterObserver(fileObserver)
+		defer fileObserver.Close()
+
+		handlers := handler.NewHandlers(metricsService, logger)
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatesPath, func(r chi.Router) {
+				r.Post("/", handlers.UpdateMetricsBatchHandler)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		batchMetrics := []model.Metrics{
+			{ID: "batch_counter_1", MType: model.Counter, Delta: func() *int64 { v := int64(100); return &v }()},
+			{ID: "batch_gauge_1", MType: model.Gauge, Value: func() *float64 { v := 3.14; return &v }()},
+		}
+
+		jsonData, err := json.Marshal(batchMetrics)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatesPath, bytes.NewBuffer(jsonData))
+		require.NoError(t, err)
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.RemoteAddr = "172.16.0.1:8080"
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close()
+
+		time.Sleep(200 * time.Millisecond)
+		fileObserver.Close()
+
+		content, err := os.ReadFile(tempFile.Name())
+		require.NoError(t, err)
+
+		var auditEvent audit.AuditEvent
+		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+		require.Len(t, lines, 1)
+
+		err = json.Unmarshal([]byte(lines[0]), &auditEvent)
+		require.NoError(t, err)
+		require.Len(t, auditEvent.MetricsIDs, 2)
+		require.Contains(t, auditEvent.MetricsIDs, "batch_counter_1")
+		require.Contains(t, auditEvent.MetricsIDs, "batch_gauge_1")
+		require.NotEmpty(t, auditEvent.IPAddress)
+	})
+
+	t.Run("multiple observers integration", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "audit_multi_*.jsonl")
+		require.NoError(t, err)
+		defer os.Remove(tempFile.Name())
+		tempFile.Close()
+
+		var urlEvents []audit.AuditEvent
+		var mu sync.Mutex
+
+		auditServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var event audit.AuditEvent
+			json.NewDecoder(r.Body).Decode(&event)
+
+			mu.Lock()
+			urlEvents = append(urlEvents, event)
+			mu.Unlock()
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer auditServer.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		storage := repository.NewMemStorage(logger)
+		metricsService := service.NewMetricsService(storage)
+
+		ctx := context.Background()
+		fileObserver := audit.NewFileAuditObserver(ctx, tempFile.Name(), logger)
+		urlObserver, err := audit.NewURLAuditObserver(ctx, auditServer.URL, logger)
+		require.NoError(t, err)
+		metricsService.RegisterObserver(fileObserver)
+		metricsService.RegisterObserver(urlObserver)
+		defer fileObserver.Close()
+		defer urlObserver.Close()
+
+		handlers := handler.NewHandlers(metricsService, logger)
+		router := chi.NewRouter()
+		router.Use(handler.GzipDecompressMiddleware(logger))
+		router.Route(config.CommonPath, func(r chi.Router) {
+			r.Route(config.UpdatePath, func(r chi.Router) {
+				r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandlerByURL)
+			})
+		})
+
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/multi_test/5", nil)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "text/plain")
+		req.RemoteAddr = "192.168.0.50:9999"
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close()
+
+		time.Sleep(300 * time.Millisecond)
+		fileObserver.Close()
+		urlObserver.Close()
+
+		content, err := os.ReadFile(tempFile.Name())
+		require.NoError(t, err)
+		require.NotEmpty(t, content)
+
+		var fileEvent audit.AuditEvent
+		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+		require.Len(t, lines, 1)
+		json.Unmarshal([]byte(lines[0]), &fileEvent)
+
+		mu.Lock()
+		require.Len(t, urlEvents, 1)
+		urlEvent := urlEvents[0]
+		mu.Unlock()
+
+		require.Contains(t, fileEvent.MetricsIDs, "multi_test")
+		require.Contains(t, urlEvent.MetricsIDs, "multi_test")
+		require.Equal(t, fileEvent.IPAddress, urlEvent.IPAddress)
+		require.NotEmpty(t, fileEvent.IPAddress)
 	})
 }
 

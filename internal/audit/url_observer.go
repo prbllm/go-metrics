@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -20,26 +21,48 @@ type URLAuditObserver struct {
 	logger logger.Logger
 	pool   *threading.WorkerPool
 	ctx    context.Context
+	cancel context.CancelFunc
 	once   sync.Once
 	errWg  sync.WaitGroup
 }
 
-func NewURLAuditObserver(ctx context.Context, url string, logger logger.Logger) *URLAuditObserver {
+func NewURLAuditObserver(ctx context.Context, auditURL string, logger logger.Logger) (*URLAuditObserver, error) {
+	if auditURL == "" {
+		return nil, fmt.Errorf("audit URL cannot be empty")
+	}
+
+	parsedURL, err := url.Parse(auditURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid audit URL: %w", err)
+	}
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, fmt.Errorf("audit URL must use http or https scheme")
+	}
+
+	observerCtx, cancel := context.WithCancel(ctx)
 	observer := &URLAuditObserver{
-		url: url,
+		url: auditURL,
 		client: &http.Client{
-			Timeout: config.HTTPRequestTimeout,
+			Timeout:       config.HTTPRequestTimeout,
+			Transport: &http.Transport{
+				IdleConnTimeout:       90 * time.Second,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   10,
+				ResponseHeaderTimeout: config.HTTPRequestTimeout,
+			},
 		},
 		logger: logger,
 		pool:   threading.NewWorkerPoolWithQueueSize(config.AuditWorkerPoolSize, config.AuditEventChannelBuffer),
-		ctx:    ctx,
+		ctx:    observerCtx,
+		cancel: cancel,
 	}
 
-	observer.pool.Start(ctx)
+	observer.pool.Start(observerCtx)
 	observer.errWg.Add(1)
-	go observer.handleErrors(ctx)
+	go observer.handleErrors(observerCtx)
 
-	return observer
+	return observer, nil
 }
 
 func (u *URLAuditObserver) Process(ctx context.Context, event AuditEvent) {
@@ -110,9 +133,26 @@ func (u *URLAuditObserver) handleErrors(ctx context.Context) {
 
 func (u *URLAuditObserver) Close() {
 	u.once.Do(func() {
+		if u.cancel != nil {
+			u.cancel()
+		}
 		if u.pool != nil {
 			u.pool.Stop()
 		}
-		u.errWg.Wait()
+		done := make(chan struct{})
+		go func() {
+			u.errWg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			u.logger.Warnf("URLAuditObserver: Close() timed out waiting for error handler")
+		}
+		if u.client != nil {
+			if transport, ok := u.client.Transport.(*http.Transport); ok {
+				transport.CloseIdleConnections()
+			}
+		}
 	})
 }

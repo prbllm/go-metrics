@@ -92,7 +92,11 @@ func main() {
 	}
 
 	if cfg.AuditURL != "" {
-		urlObserver := audit.NewURLAuditObserver(ctx, cfg.AuditURL, appLogger)
+		urlObserver, err := audit.NewURLAuditObserver(ctx, cfg.AuditURL, appLogger)
+		if err != nil {
+			appLogger.Errorf("Failed to create URL audit observer: %v", err)
+			return
+		}
 		metricsService.RegisterObserver(urlObserver)
 		observers = append(observers, urlObserver)
 		appLogger.Infof("URL audit observer registered: %s", cfg.AuditURL)
