@@ -30,7 +30,7 @@ func (m *Metrics) String() string {
 	b.WriteString(", MType: ")
 	b.WriteString(m.MType)
 	b.WriteString(", ")
-	
+
 	if m.Delta != nil {
 		b.WriteString("Delta: ")
 		b.WriteString(fmt.Sprintf("%d", *m.Delta))
@@ -38,7 +38,7 @@ func (m *Metrics) String() string {
 	} else {
 		b.WriteString("Delta: nil, ")
 	}
-	
+
 	if m.Value != nil {
 		b.WriteString("Value: ")
 		b.WriteString(fmt.Sprintf("%f", *m.Value))
@@ -46,14 +46,14 @@ func (m *Metrics) String() string {
 	} else {
 		b.WriteString("Value: nil, ")
 	}
-	
+
 	if m.Hash != "" {
 		b.WriteString("Hash: ")
 		b.WriteString(m.Hash)
 	} else {
 		b.WriteString("Hash: nil")
 	}
-	
+
 	b.WriteString("}")
 	return b.String()
 }

@@ -44,7 +44,7 @@ func NewURLAuditObserver(ctx context.Context, auditURL string, logger logger.Log
 	observer := &URLAuditObserver{
 		url: auditURL,
 		client: &http.Client{
-			Timeout:       config.HTTPRequestTimeout,
+			Timeout: config.HTTPRequestTimeout,
 			Transport: &http.Transport{
 				IdleConnTimeout:       90 * time.Second,
 				MaxIdleConns:          100,
