@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	Counter = "counter"
@@ -21,24 +24,38 @@ type Metrics struct {
 }
 
 func (m *Metrics) String() string {
-	metricString := fmt.Sprintf("Metric{ID: %s, MType: %s, ", m.ID, m.MType)
+	var b strings.Builder
+	b.WriteString("Metric{ID: ")
+	b.WriteString(m.ID)
+	b.WriteString(", MType: ")
+	b.WriteString(m.MType)
+	b.WriteString(", ")
+	
 	if m.Delta != nil {
-		metricString += fmt.Sprintf("Delta: %d, ", *m.Delta)
+		b.WriteString("Delta: ")
+		b.WriteString(fmt.Sprintf("%d", *m.Delta))
+		b.WriteString(", ")
 	} else {
-		metricString += "Delta: nil, "
+		b.WriteString("Delta: nil, ")
 	}
+	
 	if m.Value != nil {
-		metricString += fmt.Sprintf("Value: %f, ", *m.Value)
+		b.WriteString("Value: ")
+		b.WriteString(fmt.Sprintf("%f", *m.Value))
+		b.WriteString(", ")
 	} else {
-		metricString += "Value: nil, "
+		b.WriteString("Value: nil, ")
 	}
+	
 	if m.Hash != "" {
-		metricString += fmt.Sprintf("Hash: %s", m.Hash)
+		b.WriteString("Hash: ")
+		b.WriteString(m.Hash)
 	} else {
-		metricString += "Hash: nil"
+		b.WriteString("Hash: nil")
 	}
-	metricString += "}"
-	return metricString
+	
+	b.WriteString("}")
+	return b.String()
 }
 
 func CombineMetrics(metrics []Metrics, metricsToAdd []Metrics) []Metrics {

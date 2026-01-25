@@ -315,3 +315,30 @@ go vet ./...
 ## Лицензия
 
 MIT License
+
+
+pprof -top -diff_base=profiles/base.pprof profiles/result.pprof
+
+File: main
+Type: alloc_space
+Time: 2026-01-25 16:45:04 MSK
+Showing nodes accounting for 3073kB, 42.84% of 7172.92kB total
+Dropped 14 nodes (cum <= 35.86kB)
+      flat  flat%   sum%        cum   cum%
+ 1536.35kB 21.42% 21.42%  1536.35kB 21.42%  go.uber.org/zap/internal/stacktrace.Capture
+ 1024.06kB 14.28% 35.70%  1024.06kB 14.28%  encoding/hex.EncodeToString (inline)
+  512.88kB  7.15% 42.85%   512.88kB  7.15%  sync.(*Pool).pinSlow
+  512.17kB  7.14% 49.99%   512.17kB  7.14%  net/http.Header.Clone (inline)
+ -512.17kB  7.14% 42.85%  -512.17kB  7.14%  net/textproto.MIMEHeader.Set (inline)
+ -512.17kB  7.14% 35.71%  -512.17kB  7.14%  net/textproto.readMIMEHeader
+  512.16kB  7.14% 42.85%  -512.09kB  7.14%  net/http.readRequest
+ -512.14kB  7.14% 35.71%  -512.14kB  7.14%  net/http.(*Request).SetPathValue (inline)
+ -512.08kB  7.14% 28.57%  -512.08kB  7.14%  internal/sync.newIndirectNode[go.shape.interface {},go.shape.interface {}] (inline)
+ -512.06kB  7.14% 21.43%  -512.06kB  7.14%  fmt.Sprintf
+ -512.05kB  7.14% 14.29%  -512.05kB  7.14%  github.com/prbllm/go-metrics/internal/model.(*Metrics).String
+  512.02kB  7.14% 21.43%   512.02kB  7.14%  internal/sync.newEntryNode[go.shape.interface {},go.shape.interface {}] (inline)
+  512.02kB  7.14% 28.57%   512.02kB  7.14%  syscall.anyToSockaddr
+  512.01kB  7.14% 35.70%   512.01kB  7.14%  github.com/prbllm/go-metrics/internal/audit.WithClientIP (inline)
+  512.01kB  7.14% 42.84%   512.01kB  7.14%  go.uber.org/zap/zapcore.(*sliceArrayEncoder).AppendString
+
+  Добились снижения расходов памяти за счёт более корректного сложения строк

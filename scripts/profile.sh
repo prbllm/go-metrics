@@ -47,7 +47,7 @@ generate_load() {
 capture_profile() {
     echo "Снятие профиля памяти..."
     
-    curl -s "$PPROF_URL/heap" > "$PROFILES_DIR/$PROFILE_NAME.pprof" || {
+    curl -s "$PPROF_URL/allocs" > "$PROFILES_DIR/$PROFILE_NAME.pprof" || {
         echo "Ошибка: не удалось снять профиль. Убедитесь, что:"
         echo "1. Сервер запущен с флагом -pprof"
         echo "2. pprof endpoint доступен по адресу $PPROF_URL"
