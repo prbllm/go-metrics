@@ -23,6 +23,7 @@ type Config struct {
 	RateLimit       int
 	AuditFile       string
 	AuditURL        string
+	PprofEnabled    bool
 }
 
 var globalConfig *Config
@@ -40,6 +41,7 @@ func defaultConfig() *Config {
 		RateLimit:           DefaultRateLimit,
 		AuditFile:           DefaultAuditFile,
 		AuditURL:            DefaultAuditURL,
+		PprofEnabled:        false,
 	}
 }
 

@@ -75,6 +75,8 @@ func parseServerFlags(fs *flag.FlagSet, config *Config, args []string) {
 
 	fs.StringVar(&config.AuditURL, AuditURLFlag, config.AuditURL, AuditURLDescription)
 
+	fs.BoolVar(&config.PprofEnabled, PprofFlag, false, PprofDescription)
+
 	fs.Parse(processedArgs)
 
 	config.StoreInterval = time.Duration(storeIntervalSec) * time.Second

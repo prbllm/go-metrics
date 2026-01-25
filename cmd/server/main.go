@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -126,9 +127,18 @@ func main() {
 
 	router.NotFound(handlers.NotFoundHandler)
 
+	var finalHandler http.Handler = router
+	if cfg.PprofEnabled {
+		mux := http.NewServeMux()
+		mux.Handle("/", router)
+		mux.Handle(config.DebugPath+"/", http.DefaultServeMux)
+		finalHandler = mux
+		appLogger.Infof("pprof endpoints enabled at http://%s%s/", config.GetConfig().ServerHost, config.PprofPath)
+	}
+
 	server := &http.Server{
 		Addr:    config.GetConfig().ServerHost,
-		Handler: router,
+		Handler: finalHandler,
 	}
 
 	serverErr := make(chan error, 1)

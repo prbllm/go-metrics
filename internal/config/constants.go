@@ -20,6 +20,7 @@ const (
 	DefaultAuditURL            = ""
 	AuditEventChannelBuffer    = 100
 	AuditWorkerPoolSize        = 5
+	PprofPort                  = "6060"
 )
 
 const (
@@ -28,6 +29,8 @@ const (
 	UpdatesPath = "/updates"
 	CommonPath  = "/"
 	PingPath    = "/ping"
+	DebugPath   = "/debug"
+	PprofPath   = "/debug/pprof"
 )
 
 const (
@@ -46,6 +49,7 @@ const (
 	RateLimitFlag               = "l"
 	AuditFileFlag               = "audit-file"
 	AuditURLFlag                = "audit-url"
+	PprofFlag                   = "pprof"
 )
 
 const (
@@ -60,6 +64,7 @@ const (
 	RateLimitDescription       = "Rate limit in requests per second (default: 10)"
 	AuditFileDescription       = "Audit file path (default: empty)"
 	AuditURLDescription        = "Audit URL (default: empty)"
+	PprofDescription           = "Enable pprof endpoints (default: false)"
 )
 
 const (
