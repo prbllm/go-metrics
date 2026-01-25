@@ -11,11 +11,13 @@ import (
 	"github.com/prbllm/go-metrics/internal/repository"
 )
 
+// MetricsService реализует интерфейс Service для работы с метриками.
 type MetricsService struct {
 	repository repository.MetricsRepository
 	observers  []audit.MetricsObserver
 }
 
+// NewMetricsService создает новый экземпляр MetricsService.
 func NewMetricsService(repository repository.MetricsRepository) *MetricsService {
 	return &MetricsService{
 		repository: repository,
@@ -23,12 +25,14 @@ func NewMetricsService(repository repository.MetricsRepository) *MetricsService 
 	}
 }
 
+// RegisterObserver регистрирует наблюдателя для событий аудита.
 func (s *MetricsService) RegisterObserver(observer audit.MetricsObserver) {
 	if observer != nil {
 		s.observers = append(s.observers, observer)
 	}
 }
 
+// GetMetric возвращает метрику по типу и имени.
 func (s *MetricsService) GetMetric(ctx context.Context, metricType, metricName string) (*model.Metrics, error) {
 	metric := &model.Metrics{
 		MType: metricType,
@@ -37,6 +41,7 @@ func (s *MetricsService) GetMetric(ctx context.Context, metricType, metricName s
 	return s.repository.GetMetric(ctx, metric)
 }
 
+// UpdateMetric обновляет метрику по типу, имени и значению в виде строки.
 func (s *MetricsService) UpdateMetric(ctx context.Context, metricType, metricName, metricValue string) error {
 	metric := &model.Metrics{
 		MType: metricType,
@@ -63,10 +68,12 @@ func (s *MetricsService) UpdateMetric(ctx context.Context, metricType, metricNam
 	return nil
 }
 
+// GetAllMetrics возвращает все метрики.
 func (s *MetricsService) GetAllMetrics(ctx context.Context) ([]model.Metrics, error) {
 	return s.repository.GetAllMetrics(ctx), nil
 }
 
+// UpdateMetricByStruct обновляет метрику по структуре Metrics.
 func (s *MetricsService) UpdateMetricByStruct(ctx context.Context, metric *model.Metrics) error {
 	if err := ValidateMetric(metric); err != nil {
 		return err
@@ -78,6 +85,7 @@ func (s *MetricsService) UpdateMetricByStruct(ctx context.Context, metric *model
 	return nil
 }
 
+// UpdateMetricsBatchByStruct обновляет пакет метрик.
 func (s *MetricsService) UpdateMetricsBatchByStruct(ctx context.Context, metrics []*model.Metrics) error {
 	if metrics == nil {
 		return fmt.Errorf("metrics are nil")
@@ -101,6 +109,7 @@ func (s *MetricsService) UpdateMetricsBatchByStruct(ctx context.Context, metrics
 	return nil
 }
 
+// Ping проверяет доступность хранилища метрик.
 func (s *MetricsService) Ping(ctx context.Context) error {
 	return s.repository.Ping(ctx)
 }

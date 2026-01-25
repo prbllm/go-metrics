@@ -14,6 +14,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/logger"
 )
 
+// LoggingMiddleware создает middleware для логирования HTTP запросов.
 func LoggingMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +37,7 @@ func LoggingMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	}
 }
 
+// GzipDecompressMiddleware создает middleware для распаковки gzip запросов и сжатия ответов.
 func GzipDecompressMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +99,7 @@ func (w *gzipResponseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
+// HashValidationMiddleware создает middleware для проверки и добавления хеша SHA256 в запросы и ответы.
 func HashValidationMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

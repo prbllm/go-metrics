@@ -1,3 +1,4 @@
+// Package handler предоставляет HTTP обработчики для работы с метриками.
 package handler
 
 import (
@@ -13,11 +14,13 @@ import (
 	"github.com/prbllm/go-metrics/internal/service"
 )
 
+// Handlers содержит обработчики HTTP запросов для работы с метриками.
 type Handlers struct {
 	service service.Service
 	logger  logger.Logger
 }
 
+// NewHandlers создает новый экземпляр Handlers.
 func NewHandlers(service service.Service, logger logger.Logger) *Handlers {
 	return &Handlers{
 		service: service,
@@ -25,6 +28,8 @@ func NewHandlers(service service.Service, logger logger.Logger) *Handlers {
 	}
 }
 
+// UpdateMetricHandlerByURL обрабатывает POST запрос на обновление метрики через URL параметры.
+// Формат: POST /update/{metricType}/{metricName}/{metricValue}
 func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -69,6 +74,8 @@ func (h *Handlers) UpdateMetricHandlerByURL(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 }
 
+// UpdateMetricHandlerByJSON обрабатывает POST запрос на обновление метрики через JSON.
+// Формат: POST /update/
 func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -105,6 +112,8 @@ func (h *Handlers) UpdateMetricHandlerByJSON(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
+// UpdateMetricsBatchHandler обрабатывает POST запрос на обновление пакета метрик через JSON.
+// Формат: POST /updates/
 func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Request) {
 	h.logger.Debugf("UpdateMetricsBatchHandler called: Method=%s, URL=%s, Path=%s", r.Method, r.URL.String(), r.URL.Path)
 
@@ -147,10 +156,13 @@ func (h *Handlers) UpdateMetricsBatchHandler(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
+// NotFoundHandler обрабатывает запросы к несуществующим эндпоинтам.
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
+// GetAllMetricsHandlerByURL обрабатывает GET запрос на получение всех метрик в HTML формате.
+// Формат: GET /
 func (h *Handlers) GetAllMetricsHandlerByURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -195,6 +207,8 @@ func (h *Handlers) GetAllMetricsHandlerByURL(w http.ResponseWriter, r *http.Requ
 	w.Write([]byte(html))
 }
 
+// GetValueHandlerByURL обрабатывает GET запрос на получение значения метрики через URL параметры.
+// Формат: GET /value/{metricType}/{metricName}
 func (h *Handlers) GetValueHandlerByURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -229,6 +243,8 @@ func (h *Handlers) GetValueHandlerByURL(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GetValueHandlerByJSON обрабатывает POST запрос на получение значения метрики через JSON.
+// Формат: POST /value/
 func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -264,6 +280,8 @@ func (h *Handlers) GetValueHandlerByJSON(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(metricLoaded)
 }
 
+// PingHandler обрабатывает GET запрос для проверки доступности хранилища метрик.
+// Формат: GET /ping
 func (h *Handlers) PingHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
