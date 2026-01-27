@@ -21,8 +21,7 @@ func BenchmarkMemStorage_UpdateMetric(b *testing.B) {
 		Value: &value,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = storage.UpdateMetric(ctx, metric)
 	}
 }
@@ -38,8 +37,7 @@ func BenchmarkMemStorage_UpdateMetric_Counter(b *testing.B) {
 		Delta: &delta,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = storage.UpdateMetric(ctx, metric)
 	}
 }
@@ -58,8 +56,7 @@ func BenchmarkMemStorage_GetMetric(b *testing.B) {
 		ID:    "metric_A0",
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = storage.GetMetric(ctx, lookupMetric)
 	}
 }
@@ -77,8 +74,7 @@ func BenchmarkMemStorage_GetAllMetrics(b *testing.B) {
 				_ = testStorage.UpdateMetric(ctx, m)
 			}
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_ = testStorage.GetAllMetrics(ctx)
 			}
 		})
@@ -95,8 +91,7 @@ func BenchmarkMemStorage_UpdateMetricsBatch(b *testing.B) {
 		b.Run(fmt.Sprintf("batch_%d", size), func(b *testing.B) {
 			metrics := GenerateMetrics(size)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_ = storage.UpdateMetricsBatch(ctx, metrics)
 			}
 		})

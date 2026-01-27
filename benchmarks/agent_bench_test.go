@@ -13,8 +13,7 @@ func BenchmarkCollector_CollectRuntimeMetrics(b *testing.B) {
 	logger, _ := logger.NewZapLogger()
 	collector := agent.NewRuntimeMetricsCollector(logger)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = collector.CollectRuntimeMetrics()
 	}
 }
@@ -23,8 +22,7 @@ func BenchmarkCollector_CollectGopsutilMetrics(b *testing.B) {
 	logger, _ := logger.NewZapLogger()
 	collector := agent.NewRuntimeMetricsCollector(logger)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = collector.CollectGopsutilMetrics()
 	}
 }
@@ -37,8 +35,7 @@ func BenchmarkAgent_CombineMetrics(b *testing.B) {
 			runtimeMetrics := GenerateMetricsSlice(size)
 			gopsutilMetrics := GenerateMetricsSlice(size / 2)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_ = model.CombineMetrics(runtimeMetrics, gopsutilMetrics)
 			}
 		})

@@ -16,8 +16,7 @@ func BenchmarkService_UpdateMetric(b *testing.B) {
 	svc := service.NewMetricsService(storage)
 	ctx := context.Background()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = svc.UpdateMetric(ctx, model.Gauge, "test_gauge", "123.45")
 	}
 }
@@ -34,8 +33,7 @@ func BenchmarkService_UpdateMetricByStruct(b *testing.B) {
 		Value: &value,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = svc.UpdateMetricByStruct(ctx, metric)
 	}
 }
@@ -47,8 +45,7 @@ func BenchmarkService_GetMetric(b *testing.B) {
 
 	_ = svc.UpdateMetric(ctx, model.Gauge, "test_gauge", "123.45")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = svc.GetMetric(ctx, model.Gauge, "test_gauge")
 	}
 }
@@ -68,8 +65,7 @@ func BenchmarkService_GetAllMetrics(b *testing.B) {
 				_ = testSvc.UpdateMetricByStruct(ctx, m)
 			}
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = testSvc.GetAllMetrics(ctx)
 			}
 		})
@@ -87,8 +83,7 @@ func BenchmarkService_UpdateMetricsBatchByStruct(b *testing.B) {
 		b.Run(fmt.Sprintf("batch_%d", size), func(b *testing.B) {
 			metrics := GenerateMetrics(size)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_ = svc.UpdateMetricsBatchByStruct(ctx, metrics)
 			}
 		})

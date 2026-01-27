@@ -50,8 +50,7 @@ func BenchmarkHandler_UpdateMetricByJSON(b *testing.B) {
 
 	body, _ := json.Marshal(metric)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, config.UpdatePath, bytes.NewReader(body))
 		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
 		rr := httptest.NewRecorder()
@@ -80,8 +79,7 @@ func BenchmarkHandler_GetAllMetrics(b *testing.B) {
 				_ = testSvc.UpdateMetricByStruct(ctx, m)
 			}
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				req := httptest.NewRequest(http.MethodGet, config.CommonPath, nil)
 				rr := httptest.NewRecorder()
 				testRouter.ServeHTTP(rr, req)
@@ -100,8 +98,7 @@ func BenchmarkHandler_UpdateMetricsBatch(b *testing.B) {
 			metrics := GenerateMetricsSlice(size)
 			body, _ := json.Marshal(metrics)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				req := httptest.NewRequest(http.MethodPost, config.UpdatesPath, bytes.NewReader(body))
 				req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
 				rr := httptest.NewRecorder()

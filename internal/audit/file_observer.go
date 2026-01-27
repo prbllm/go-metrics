@@ -20,6 +20,7 @@ type FileAuditObserver struct {
 	eventCh  chan AuditEvent
 	writerWg sync.WaitGroup
 	errWg    sync.WaitGroup
+	writeMu  sync.Mutex
 }
 
 func NewFileAuditObserver(ctx context.Context, filePath string, logger logger.Logger) *FileAuditObserver {
@@ -101,6 +102,9 @@ func (f *FileAuditObserver) writerLoop(ctx context.Context) {
 }
 
 func (f *FileAuditObserver) writeEvent(file *os.File, event AuditEvent) error {
+	f.writeMu.Lock()
+	defer f.writeMu.Unlock()
+
 	jsonData, err := json.Marshal(event)
 	if err != nil {
 		return err
