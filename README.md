@@ -341,4 +341,4 @@ Dropped 14 nodes (cum <= 35.86kB)
   512.01kB  7.14% 35.70%   512.01kB  7.14%  github.com/prbllm/go-metrics/internal/audit.WithClientIP (inline)
   512.01kB  7.14% 42.84%   512.01kB  7.14%  go.uber.org/zap/zapcore.(*sliceArrayEncoder).AppendString
 
-  Добились снижения расходов памяти за счёт более корректного сложения строк
+  Добились снижения расходов памяти за счёт более корректного сложения строк. Раньше использовалась конкатенация через `+=`, теперь используется `strings.Builder` (см. [`internal/model/metrics.go:28`](internal/model/metrics.go#L28))

@@ -32,17 +32,17 @@ var globalConfig *Config
 
 func defaultConfig() *Config {
 	return &Config{
-		ServerHost:          DefaultServerHost,
-		AgentPollInterval:   DefaultAgentPollInterval,
-		AgentReportInterval: DefaultAgentReportInterval,
-		StoreInterval:       DefaultStoreInterval,
-		FileStoragePath:     DefaultFileStoragePath,
-		Restore:             DefaultRestore,
-		DatabaseDSN:         DefaultDatabaseDSN,
-		Key:                 DefaultKey,
-		RateLimit:           DefaultRateLimit,
-		AuditFile:           DefaultAuditFile,
-		AuditURL:            DefaultAuditURL,
+		ServerHost:          defaultServerHost,
+		AgentPollInterval:   defaultAgentPollInterval,
+		AgentReportInterval: defaultAgentReportInterval,
+		StoreInterval:       defaultStoreInterval,
+		FileStoragePath:     defaultFileStoragePath,
+		Restore:             defaultRestore,
+		DatabaseDSN:         defaultDatabaseDSN,
+		Key:                 defaultKey,
+		RateLimit:           defaultRateLimit,
+		AuditFile:           defaultAuditFile,
+		AuditURL:            defaultAuditURL,
 		PprofEnabled:        false,
 	}
 }

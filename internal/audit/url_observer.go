@@ -12,6 +12,7 @@ import (
 
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/logger"
+	"github.com/prbllm/go-metrics/internal/retry"
 	"github.com/prbllm/go-metrics/internal/threading"
 )
 
@@ -94,20 +95,22 @@ func (u *URLAuditObserver) sendEvent(ctx context.Context, event AuditEvent) erro
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return err
-	}
+	resp, err := retry.RetryWithBackoffHTTP(ctx, u.logger, func() (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %w", err)
+		}
 
-	req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
 
-	resp, err := u.client.Do(req)
+		return u.client.Do(req)
+	})
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= http.StatusBadRequest {
+	if resp.StatusCode >= http.StatusBadRequest && !retry.IsRetriableHTTPResponse(resp) {
 		return fmt.Errorf("received error status %d from audit endpoint", resp.StatusCode)
 	}
 

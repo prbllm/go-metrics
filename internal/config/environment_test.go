@@ -176,7 +176,7 @@ func TestLoadAgentEnvironments_RateLimit(t *testing.T) {
 
 			if tt.expectError {
 				if tt.envValue == "" || tt.envValue == "not_a_number" {
-					assert.Equal(t, DefaultRateLimit, cfg.RateLimit, "RateLimit should remain default on error")
+					assert.Equal(t, defaultRateLimit, cfg.RateLimit, "RateLimit should remain default on error")
 				} else {
 					actualValue, _ := strconv.Atoi(tt.envValue)
 					assert.Equal(t, actualValue, cfg.RateLimit)

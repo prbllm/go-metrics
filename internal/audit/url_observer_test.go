@@ -275,6 +275,128 @@ func TestURLAuditObserver_Process(t *testing.T) {
 	})
 }
 
+func TestURLAuditObserver_Retry(t *testing.T) {
+	t.Run("retry on retriable HTTP status 500", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts < 3 {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		}))
+		defer server.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		ctx := context.Background()
+		observer, err := NewURLAuditObserver(ctx, server.URL, logger)
+		require.NoError(t, err)
+		defer observer.Close()
+
+		event := AuditEvent{
+			Timestamp:  time.Now().Unix(),
+			MetricsIDs: []string{"test_metric"},
+			IPAddress:  "127.0.0.1",
+		}
+
+		observer.Process(ctx, event)
+
+		time.Sleep(5 * time.Second)
+		observer.Close()
+
+		require.Equal(t, 3, attempts, "Should have retried 2 times (total 3 attempts)")
+	})
+
+	t.Run("retry on retriable HTTP status 502", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts < 2 {
+				w.WriteHeader(http.StatusBadGateway)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		}))
+		defer server.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		ctx := context.Background()
+		observer, err := NewURLAuditObserver(ctx, server.URL, logger)
+		require.NoError(t, err)
+		defer observer.Close()
+
+		event := AuditEvent{
+			Timestamp:  time.Now().Unix(),
+			MetricsIDs: []string{"test_metric"},
+			IPAddress:  "127.0.0.1",
+		}
+
+		observer.Process(ctx, event)
+
+		time.Sleep(2 * time.Second)
+		observer.Close()
+
+		require.Equal(t, 2, attempts, "Should have retried once (total 2 attempts)")
+	})
+
+	t.Run("retry exhausted on retriable status", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		defer server.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		ctx := context.Background()
+		observer, err := NewURLAuditObserver(ctx, server.URL, logger)
+		require.NoError(t, err)
+		defer observer.Close()
+
+		event := AuditEvent{
+			Timestamp:  time.Now().Unix(),
+			MetricsIDs: []string{"test_metric"},
+			IPAddress:  "127.0.0.1",
+		}
+
+		observer.Process(ctx, event)
+
+		time.Sleep(6 * time.Second)
+		observer.Close()
+
+		require.GreaterOrEqual(t, attempts, 2, "Should have made at least 2 attempts before context timeout")
+	})
+
+	t.Run("no retry on non-retriable status 400", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			w.WriteHeader(http.StatusBadRequest)
+		}))
+		defer server.Close()
+
+		logger := zaptest.NewLogger(t).Sugar()
+		ctx := context.Background()
+		observer, err := NewURLAuditObserver(ctx, server.URL, logger)
+		require.NoError(t, err)
+		defer observer.Close()
+
+		event := AuditEvent{
+			Timestamp:  time.Now().Unix(),
+			MetricsIDs: []string{"test_metric"},
+			IPAddress:  "127.0.0.1",
+		}
+
+		observer.Process(ctx, event)
+
+		time.Sleep(200 * time.Millisecond)
+		observer.Close()
+
+		require.Equal(t, 1, attempts, "Should not retry on non-retriable status")
+	})
+}
+
 func TestURLAuditObserver_Close(t *testing.T) {
 	t.Run("close gracefully waits for pending events", func(t *testing.T) {
 		var receivedEvents []AuditEvent
