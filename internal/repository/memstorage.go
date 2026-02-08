@@ -9,12 +9,14 @@ import (
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
+// MemStorage реализует in-memory хранилище метрик.
 type MemStorage struct {
 	metrics map[string]*model.Metrics
 	mu      sync.RWMutex
 	logger  logger.Logger
 }
 
+// NewMemStorage создает новый экземпляр MemStorage.
 func NewMemStorage(logger logger.Logger) *MemStorage {
 	return &MemStorage{
 		metrics: make(map[string]*model.Metrics),
@@ -26,6 +28,7 @@ func (m *MemStorage) generateKey(metricType, name string) string {
 	return fmt.Sprintf("%s:%s", metricType, name)
 }
 
+// UpdateMetric обновляет метрику в хранилище.
 func (m *MemStorage) UpdateMetric(ctx context.Context, metric *model.Metrics) error {
 	key := m.generateKey(metric.MType, metric.ID)
 
@@ -43,6 +46,7 @@ func (m *MemStorage) UpdateMetric(ctx context.Context, metric *model.Metrics) er
 	return nil
 }
 
+// UpdateMetricsBatch обновляет пакет метрик в хранилище.
 func (m *MemStorage) UpdateMetricsBatch(ctx context.Context, metrics []*model.Metrics) error {
 	if metrics == nil {
 		return fmt.Errorf("metrics are nil")
@@ -58,6 +62,7 @@ func (m *MemStorage) UpdateMetricsBatch(ctx context.Context, metrics []*model.Me
 	return nil
 }
 
+// GetMetric возвращает метрику из хранилища.
 func (m *MemStorage) GetMetric(ctx context.Context, metric *model.Metrics) (*model.Metrics, error) {
 	if metric == nil {
 		return nil, fmt.Errorf("metric is nil")
@@ -74,6 +79,7 @@ func (m *MemStorage) GetMetric(ctx context.Context, metric *model.Metrics) (*mod
 	return val, nil
 }
 
+// GetAllMetrics возвращает все метрики из хранилища.
 func (m *MemStorage) GetAllMetrics(ctx context.Context) []model.Metrics {
 	m.mu.RLock()
 	metrics := make([]model.Metrics, 0, len(m.metrics))
@@ -85,6 +91,7 @@ func (m *MemStorage) GetAllMetrics(ctx context.Context) []model.Metrics {
 	return metrics
 }
 
+// Ping проверяет доступность хранилища (для MemStorage всегда возвращает ошибку).
 func (m *MemStorage) Ping(ctx context.Context) error {
 	return fmt.Errorf("not supported")
 }

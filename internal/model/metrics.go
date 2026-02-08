@@ -1,46 +1,66 @@
+// Package model предоставляет модели данных для метрик.
 package model
 
-import "fmt"
-
-const (
-	Counter = "counter"
-	Gauge   = "gauge"
+import (
+	"fmt"
+	"strings"
 )
 
-// NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
-// Органичиваясь плоской моделью.
-// Delta и Value объявлены через указатели,
-// что бы отличать значение "0", от не заданного значения
-// и соответственно не кодировать в структуру.
+const (
+	// Counter - тип метрики-счетчика (целочисленное значение).
+	Counter = "counter"
+
+	// Gauge - тип метрики-измерителя (значение с плавающей точкой).
+	Gauge = "gauge"
+)
+
+// Metrics представляет метрику системы.
+// Delta и Value объявлены через указатели, чтобы отличать значение "0" от не заданного значения.
 type Metrics struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
-	Hash  string   `json:"hash,omitempty"`
+	ID    string   `json:"id"`              // Идентификатор метрики
+	MType string   `json:"type"`            // Тип метрики (counter или gauge)
+	Delta *int64   `json:"delta,omitempty"` // Значение для счетчика
+	Value *float64 `json:"value,omitempty"` // Значение для измерителя
+	Hash  string   `json:"hash,omitempty"`  // Хеш для проверки целостности
 }
 
+// String возвращает строковое представление метрики.
 func (m *Metrics) String() string {
-	metricString := fmt.Sprintf("Metric{ID: %s, MType: %s, ", m.ID, m.MType)
+	var b strings.Builder
+	b.WriteString("Metric{ID: ")
+	b.WriteString(m.ID)
+	b.WriteString(", MType: ")
+	b.WriteString(m.MType)
+	b.WriteString(", ")
+
 	if m.Delta != nil {
-		metricString += fmt.Sprintf("Delta: %d, ", *m.Delta)
+		b.WriteString("Delta: ")
+		b.WriteString(fmt.Sprintf("%d", *m.Delta))
+		b.WriteString(", ")
 	} else {
-		metricString += "Delta: nil, "
+		b.WriteString("Delta: nil, ")
 	}
+
 	if m.Value != nil {
-		metricString += fmt.Sprintf("Value: %f, ", *m.Value)
+		b.WriteString("Value: ")
+		b.WriteString(fmt.Sprintf("%f", *m.Value))
+		b.WriteString(", ")
 	} else {
-		metricString += "Value: nil, "
+		b.WriteString("Value: nil, ")
 	}
+
 	if m.Hash != "" {
-		metricString += fmt.Sprintf("Hash: %s", m.Hash)
+		b.WriteString("Hash: ")
+		b.WriteString(m.Hash)
 	} else {
-		metricString += "Hash: nil"
+		b.WriteString("Hash: nil")
 	}
-	metricString += "}"
-	return metricString
+
+	b.WriteString("}")
+	return b.String()
 }
 
+// CombineMetrics объединяет два списка метрик, суммируя значения счетчиков и заменяя значения измерителей.
 func CombineMetrics(metrics []Metrics, metricsToAdd []Metrics) []Metrics {
 	metricsMap := make(map[string]*Metrics, len(metrics))
 

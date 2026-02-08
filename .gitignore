@@ -25,3 +25,6 @@ vendor/
 .vscode
 
 metricstest_v2-darwin-amd64
+
+# Profiles
+profiles/

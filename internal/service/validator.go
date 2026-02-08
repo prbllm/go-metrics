@@ -7,6 +7,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/model"
 )
 
+// ValidateMetricType проверяет корректность типа метрики.
 func ValidateMetricType(metricType string) error {
 	if metricType != model.Counter && metricType != model.Gauge {
 		return fmt.Errorf("invalid metric type")
@@ -14,6 +15,7 @@ func ValidateMetricType(metricType string) error {
 	return nil
 }
 
+// ValidateMetricValue проверяет корректность значения метрики для указанного типа.
 func ValidateMetricValue(metricType, value string) error {
 	switch metricType {
 	case model.Counter:
@@ -30,6 +32,7 @@ func ValidateMetricValue(metricType, value string) error {
 	return nil
 }
 
+// ValidateMetric проверяет корректность структуры метрики.
 func ValidateMetric(metric *model.Metrics) error {
 	if err := ValidateMetricType(metric.MType); err != nil {
 		return err

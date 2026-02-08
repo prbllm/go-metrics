@@ -1,3 +1,4 @@
+// Package config предоставляет конфигурацию приложения.
 package config
 
 import (
@@ -9,42 +10,51 @@ import (
 	"github.com/prbllm/go-metrics/internal/logger"
 )
 
+// Config содержит конфигурацию сервера и агента метрик.
 type Config struct {
-	ServerHost string
+	ServerHost string // Адрес сервера
 
-	AgentPollInterval   time.Duration
-	AgentReportInterval time.Duration
+	AgentPollInterval   time.Duration // Интервал сбора метрик агентом
+	AgentReportInterval time.Duration // Интервал отправки метрик агентом
 
-	StoreInterval   time.Duration
-	FileStoragePath string
-	Restore         bool
-	DatabaseDSN     string
-	Key             string
-	RateLimit       int
+	StoreInterval   time.Duration // Интервал сохранения метрик на диск
+	FileStoragePath string        // Путь к файлу хранения метрик
+	Restore         bool          // Флаг восстановления метрик из файла
+	DatabaseDSN     string        // Строка подключения к базе данных
+	Key             string        // Ключ для вычисления хеша
+	RateLimit       int           // Лимит запросов в секунду
+	AuditFile       string        // Путь к файлу аудита
+	AuditURL        string        // URL для отправки событий аудита
+	PprofEnabled    bool          // Флаг включения pprof эндпоинтов
 }
 
 var globalConfig *Config
 
 func defaultConfig() *Config {
 	return &Config{
-		ServerHost:          DefaultServerHost,
-		AgentPollInterval:   DefaultAgentPollInterval,
-		AgentReportInterval: DefaultAgentReportInterval,
-		StoreInterval:       DefaultStoreInterval,
-		FileStoragePath:     DefaultFileStoragePath,
-		Restore:             DefaultRestore,
-		DatabaseDSN:         DefaultDatabaseDSN,
-		Key:                 DefaultKey,
-		RateLimit:           DefaultRateLimit,
+		ServerHost:          defaultServerHost,
+		AgentPollInterval:   defaultAgentPollInterval,
+		AgentReportInterval: defaultAgentReportInterval,
+		StoreInterval:       defaultStoreInterval,
+		FileStoragePath:     defaultFileStoragePath,
+		Restore:             defaultRestore,
+		DatabaseDSN:         defaultDatabaseDSN,
+		Key:                 defaultKey,
+		RateLimit:           defaultRateLimit,
+		AuditFile:           defaultAuditFile,
+		AuditURL:            defaultAuditURL,
+		PprofEnabled:        false,
 	}
 }
 
+// InitConfig инициализирует глобальную конфигурацию из флагов и переменных окружения.
 func InitConfig(flagsetName string, logger logger.Logger) error {
 	globalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError, logger)
 	globalConfig.loadFromEnvironment(flagsetName, logger)
 	return globalConfig.Validate()
 }
 
+// GetConfig возвращает глобальную конфигурацию.
 func GetConfig() *Config {
 	if globalConfig == nil {
 		globalConfig = defaultConfig()
@@ -52,11 +62,13 @@ func GetConfig() *Config {
 	return globalConfig
 }
 
+// SetConfig устанавливает глобальную конфигурацию.
 func SetConfig(config *Config, logger logger.Logger) {
 	logger.Infof("Setting config: %v", config.String())
 	globalConfig = config
 }
 
+// Validate проверяет корректность конфигурации.
 func (c *Config) Validate() error {
 	if c.ServerHost == "" {
 		return fmt.Errorf("server host cannot be empty")
@@ -169,5 +181,19 @@ func (c *Config) loadServerEnvironmets(logger logger.Logger) {
 		logger.Warnf("failed to get database DSN from environment: %v", err)
 	} else {
 		c.DatabaseDSN = databaseDSN
+	}
+
+	auditFile, err := GetEnvironment(AuditFileEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get audit file from environment: %v", err)
+	} else {
+		c.AuditFile = auditFile
+	}
+
+	auditURL, err := GetEnvironment(AuditURLEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get audit URL from environment: %v", err)
+	} else {
+		c.AuditURL = auditURL
 	}
 }

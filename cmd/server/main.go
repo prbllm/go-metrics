@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/handler"
 	"github.com/prbllm/go-metrics/internal/logger"
@@ -81,6 +83,26 @@ func main() {
 
 	metricsService := service.NewMetricsService(metricsRepository)
 
+	var observers []audit.MetricsObserver
+
+	if cfg.AuditFile != "" {
+		fileObserver := audit.NewFileAuditObserver(ctx, cfg.AuditFile, appLogger)
+		metricsService.RegisterObserver(fileObserver)
+		observers = append(observers, fileObserver)
+		appLogger.Infof("File audit observer registered: %s", cfg.AuditFile)
+	}
+
+	if cfg.AuditURL != "" {
+		urlObserver, err := audit.NewURLAuditObserver(ctx, cfg.AuditURL, appLogger)
+		if err != nil {
+			appLogger.Errorf("Failed to create URL audit observer: %v", err)
+			return
+		}
+		metricsService.RegisterObserver(urlObserver)
+		observers = append(observers, urlObserver)
+		appLogger.Infof("URL audit observer registered: %s", cfg.AuditURL)
+	}
+
 	handlers := handler.NewHandlers(metricsService, appLogger)
 	router := chi.NewRouter()
 
@@ -105,9 +127,18 @@ func main() {
 
 	router.NotFound(handlers.NotFoundHandler)
 
+	var finalHandler http.Handler = router
+	if cfg.PprofEnabled {
+		mux := http.NewServeMux()
+		mux.Handle("/", router)
+		mux.Handle(config.DebugPath+"/", http.DefaultServeMux)
+		finalHandler = mux
+		appLogger.Infof("pprof endpoints enabled at http://%s%s/", config.GetConfig().ServerHost, config.PprofPath)
+	}
+
 	server := &http.Server{
 		Addr:    config.GetConfig().ServerHost,
-		Handler: router,
+		Handler: finalHandler,
 	}
 
 	serverErr := make(chan error, 1)
@@ -133,6 +164,15 @@ func main() {
 		appLogger.Errorf("Server forced to shutdown: %v", err)
 	} else {
 		appLogger.Info("Server exited gracefully")
+	}
+
+	for _, observer := range observers {
+		if observer != nil {
+			observer.Close()
+		}
+	}
+	if len(observers) > 0 {
+		appLogger.Info("All audit observers closed")
 	}
 
 	if pgRepo, ok := metricsRepository.(*repository.PostgresRepository); ok {

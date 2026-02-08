@@ -3,19 +3,24 @@ package config
 import "time"
 
 const (
-	DefaultServerHost = "localhost:8080"
+	defaultServerHost = "localhost:8080"
 )
 
 const (
-	DefaultAgentPollInterval   = 2 * time.Second
-	DefaultAgentReportInterval = 10 * time.Second
-	DefaultStoreInterval       = 30 * time.Second
-	DefaultFileStoragePath     = "metrics.json"
-	DefaultRestore             = false
-	DefaultDatabaseDSN         = ""
-	DefaultKey                 = ""
-	DefaultRateLimit           = 10
+	defaultAgentPollInterval   = 2 * time.Second
+	defaultAgentReportInterval = 10 * time.Second
+	defaultStoreInterval       = 30 * time.Second
+	defaultFileStoragePath     = "metrics.json"
+	defaultRestore             = false
+	defaultDatabaseDSN         = ""
+	defaultKey                 = ""
+	defaultRateLimit           = 10
 	HTTPRequestTimeout         = 10 * time.Second
+	defaultAuditFile           = ""
+	defaultAuditURL            = ""
+	AuditEventChannelBuffer    = 100
+	AuditWorkerPoolSize        = 5
+	PprofPort                  = "6060"
 )
 
 const (
@@ -24,6 +29,8 @@ const (
 	UpdatesPath = "/updates"
 	CommonPath  = "/"
 	PingPath    = "/ping"
+	DebugPath   = "/debug"
+	PprofPath   = "/debug/pprof"
 )
 
 const (
@@ -32,26 +39,32 @@ const (
 )
 
 const (
-	ServerHostFlag              = "a"
-	ReportIntervalOrRestoreFlag = "r"
-	PollIntervalFlag            = "p"
-	StoreIntervalFlag           = "i"
-	FileStoragePathFlag         = "f"
-	DatabaseDSNFlag             = "d"
-	KeyFlag                     = "k"
-	RateLimitFlag               = "l"
+	serverHostFlag              = "a"
+	reportIntervalOrRestoreFlag = "r"
+	pollIntervalFlag            = "p"
+	storeIntervalFlag           = "i"
+	fileStoragePathFlag         = "f"
+	databaseDSNFlag             = "d"
+	keyFlag                     = "k"
+	rateLimitFlag               = "l"
+	auditFileFlag               = "audit-file"
+	auditURLFlag                = "audit-url"
+	pprofFlag                   = "pprof"
 )
 
 const (
-	ServerHostDescription      = "Server address (default: localhost:8080)"
-	ReportIntervalDescription  = "Agent report interval in seconds (default: 10)"
-	PollIntervalDescription    = "Agent poll interval in seconds (default: 2)"
-	StoreIntervalDescription   = "Store interval in seconds (default: 30)"
-	FileStoragePathDescription = "File storage path (default: metrics.json)"
-	RestoreDescription         = "Restore from file storage (true/false, default: false)"
-	DatabaseDSNDescription     = "Database connection string (DSN)"
-	KeyDescription             = "Key for hash"
-	RateLimitDescription       = "Rate limit in requests per second (default: 10)"
+	serverHostDescription      = "Server address (default: localhost:8080)"
+	reportIntervalDescription  = "Agent report interval in seconds (default: 10)"
+	pollIntervalDescription    = "Agent poll interval in seconds (default: 2)"
+	storeIntervalDescription   = "Store interval in seconds (default: 30)"
+	fileStoragePathDescription = "File storage path (default: metrics.json)"
+	restoreDescription         = "Restore from file storage (true/false, default: false)"
+	databaseDSNDescription     = "Database connection string (DSN)"
+	keyDescription             = "Key for hash"
+	rateLimitDescription       = "Rate limit in requests per second (default: 10)"
+	auditFileDescription       = "Audit file path (default: empty)"
+	auditURLDescription        = "Audit URL (default: empty)"
+	pprofDescription           = "Enable pprof endpoints (default: false)"
 )
 
 const (
@@ -65,6 +78,8 @@ const (
 	DatabaseDSNEnvVar     = "DATABASE_DSN"
 	KeyEnvVar             = "KEY"
 	RateLimitEnvVar       = "RATE_LIMIT"
+	AuditFileEnvVar       = "AUDIT_FILE"
+	AuditURLEnvVar        = "AUDIT_URL"
 )
 
 const (
