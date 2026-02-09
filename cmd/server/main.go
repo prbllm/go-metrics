@@ -16,8 +16,15 @@ import (
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
+	"github.com/prbllm/go-metrics/internal/versions"
 
 	"github.com/go-chi/chi/v5"
+)
+
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 func createFileStorage(ctx context.Context, filePath string, restore bool, logger logger.Logger) repository.MetricsRepository {
@@ -145,6 +152,7 @@ func main() {
 
 	go func() {
 		appLogger.Infof("Server starting on %s", config.GetConfig().ServerHost)
+		versions.LogBuildInfo(buildVersion, buildDate, buildCommit, appLogger)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErr <- err
 		}

@@ -11,6 +11,13 @@ import (
 	"github.com/prbllm/go-metrics/internal/agent"
 	"github.com/prbllm/go-metrics/internal/config"
 	"github.com/prbllm/go-metrics/internal/logger"
+	"github.com/prbllm/go-metrics/internal/versions"
+)
+
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 func main() {
@@ -31,5 +38,6 @@ func main() {
 
 	collector := agent.NewRuntimeMetricsCollector(appLogger)
 	agent := agent.NewAgent(http.DefaultClient, collector, appLogger)
+	versions.LogBuildInfo(buildVersion, buildDate, buildCommit, appLogger)
 	agent.Start(ctx)
 }
