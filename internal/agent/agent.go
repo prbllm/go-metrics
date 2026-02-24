@@ -94,8 +94,30 @@ func (a *Agent) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			a.logger.Info("Context done")
-			a.pool.Stop()
+			a.logger.Info("Context done, starting graceful shutdown")
+
+			pollTicker.Stop()
+			reportTicker.Stop()
+
+			a.mu.RLock()
+			runtimeMetrics := make([]model.Metrics, len(a.runtimeMetrics))
+			copy(runtimeMetrics, a.runtimeMetrics)
+			gopsutilMetrics := make([]model.Metrics, len(a.gopsutilMetrics))
+			copy(gopsutilMetrics, a.gopsutilMetrics)
+			a.mu.RUnlock()
+
+			combinedMetrics := model.CombineMetrics(runtimeMetrics, gopsutilMetrics)
+
+			shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+			defer cancelShutdown()
+
+			if len(combinedMetrics) > 0 {
+				if err := a.SendMetricsBatchJSON(shutdownCtx, combinedMetrics); err != nil {
+					a.logger.Errorf("Failed to send final metrics batch during shutdown: %v", err)
+				}
+			}
+
+			a.pool.StopAndDrain(shutdownCtx)
 			return
 		case <-reportTicker.C:
 			a.mu.RLock()
@@ -109,7 +131,7 @@ func (a *Agent) Start(ctx context.Context) {
 				combinedMetrics := model.CombineMetrics(runtimeMetrics, gopsutilMetrics)
 				if len(combinedMetrics) > 0 {
 					a.pool.AddJob(func() error {
-						return a.SendMetricsBatchJSON(ctx, combinedMetrics)
+						return a.SendMetricsBatchJSON(context.Background(), combinedMetrics)
 					})
 				}
 			}

@@ -66,6 +66,15 @@ func (f *FileStorageDecorator) Ping(ctx context.Context) error {
 	return f.memStorage.Ping(ctx)
 }
 
+// Flush сохраняет все метрики в файл независимо от режима StoreInterval.
+func (f *FileStorageDecorator) Flush(ctx context.Context) error {
+	if err := f.SaveToFile(ctx); err != nil {
+		return fmt.Errorf("failed to flush metrics to file: %w", err)
+	}
+	f.logger.Infof("Metrics flushed to file: %s", f.filePath)
+	return nil
+}
+
 func (f *FileStorageDecorator) SaveToFile(ctx context.Context) error {
 	metrics := f.memStorage.GetAllMetrics(ctx)
 	json, err := json.Marshal(metrics)

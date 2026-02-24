@@ -17,6 +17,7 @@ const (
 	defaultCryptoKey           = ""
 	defaultRateLimit           = 10
 	HTTPRequestTimeout         = 10 * time.Second
+	ShutdownTimeout            = 10 * time.Second
 	defaultAuditFile           = ""
 	defaultAuditURL            = ""
 	AuditEventChannelBuffer    = 100

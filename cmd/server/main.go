@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/config"
@@ -82,7 +81,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+	)
 	defer stop()
 
 	cfg := config.GetConfig()
@@ -170,13 +175,19 @@ func main() {
 		appLogger.Errorf("Server error: %v", err)
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		appLogger.Errorf("Server forced to shutdown: %v", err)
 	} else {
 		appLogger.Info("Server exited gracefully")
+	}
+
+	if flushErr := metricsRepository.Flush(shutdownCtx); flushErr != nil {
+		appLogger.Errorf("Failed to flush metrics repository during shutdown: %v", flushErr)
+	} else {
+		appLogger.Info("Metrics repository flushed successfully")
 	}
 
 	for _, observer := range observers {
