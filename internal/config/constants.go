@@ -14,6 +14,7 @@ const (
 	defaultRestore             = false
 	defaultDatabaseDSN         = ""
 	defaultKey                 = ""
+	defaultCryptoKey           = ""
 	defaultRateLimit           = 10
 	HTTPRequestTimeout         = 10 * time.Second
 	defaultAuditFile           = ""
@@ -46,6 +47,7 @@ const (
 	fileStoragePathFlag         = "f"
 	databaseDSNFlag             = "d"
 	keyFlag                     = "k"
+	cryptoKeyFlag               = "crypto-key"
 	rateLimitFlag               = "l"
 	auditFileFlag               = "audit-file"
 	auditURLFlag                = "audit-url"
@@ -61,6 +63,7 @@ const (
 	restoreDescription         = "Restore from file storage (true/false, default: false)"
 	databaseDSNDescription     = "Database connection string (DSN)"
 	keyDescription             = "Key for hash"
+	cryptoKeyDescription       = "Path to file with public (agent) or private (server) key PEM for request body encryption"
 	rateLimitDescription       = "Rate limit in requests per second (default: 10)"
 	auditFileDescription       = "Audit file path (default: empty)"
 	auditURLDescription        = "Audit URL (default: empty)"
@@ -77,6 +80,7 @@ const (
 	RestoreEnvVar         = "RESTORE"
 	DatabaseDSNEnvVar     = "DATABASE_DSN"
 	KeyEnvVar             = "KEY"
+	CryptoKeyEnvVar       = "CRYPTO_KEY"
 	RateLimitEnvVar       = "RATE_LIMIT"
 	AuditFileEnvVar       = "AUDIT_FILE"
 	AuditURLEnvVar        = "AUDIT_URL"
@@ -95,11 +99,11 @@ const (
 )
 
 const (
-	ContentTypeHeader     = "Content-Type"
-	ContentEncodingHeader = "Content-Encoding"
-	AcceptEncodingHeader  = "Accept-Encoding"
-	VaryHeader            = "Vary"
-	HashSHA256Header      = "HashSHA256"
+	ContentTypeHeader      = "Content-Type"
+	ContentEncodingHeader  = "Content-Encoding"
+	AcceptEncodingHeader   = "Accept-Encoding"
+	VaryHeader             = "Vary"
+	HashSHA256Header       = "HashSHA256"
 )
 
 const (

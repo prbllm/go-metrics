@@ -2,15 +2,22 @@ package handler
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/encryption"
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/prbllm/go-metrics/internal/repository"
@@ -231,4 +238,138 @@ func TestHashValidationMiddleware(t *testing.T) {
 			require.Equal(t, tc.expectedStatus, rr.Code, "Expected status %d", tc.expectedStatus)
 		})
 	}
+}
+
+func TestDecryptCryptoMiddleware_NoCryptoKeyConfigured(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	config.SetConfig(&config.Config{
+		CryptoKey: "",
+	}, logger)
+
+	router := chi.NewRouter()
+	router.Use(DecryptCryptoMiddleware(logger))
+	router.Post("/test", func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, []byte("plain-body"), body)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader([]byte("plain-body")))
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestDecryptCryptoMiddleware_ValidEncryptedPayload(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+
+	pubPath, privPath := func() (string, string) {
+		t.Helper()
+		return encryptionTestKeyPairFiles(t)
+	}()
+
+	config.SetConfig(&config.Config{
+		CryptoKey: privPath,
+	}, logger)
+
+	type encryptedPayload struct {
+		Key  string `json:"key"`
+		Data string `json:"data"`
+	}
+
+	originalBody := []byte(`{"foo":"bar"}`)
+
+	encKey, ciphertext, err := encryption.EncryptHybrid(pubPath, originalBody)
+	require.NoError(t, err)
+
+	payload := encryptedPayload{
+		Key:  base64.StdEncoding.EncodeToString(encKey),
+		Data: base64.StdEncoding.EncodeToString(ciphertext),
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	router := chi.NewRouter()
+	router.Use(DecryptCryptoMiddleware(logger))
+	router.Post("/test", func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, originalBody, body)
+		require.Empty(t, r.Header.Get(config.ContentEncodingHeader))
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(payloadBytes))
+	req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+	req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestDecryptCryptoMiddleware_InvalidEncryptedPayload(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+
+	_, privPath := encryptionTestKeyPairFiles(t)
+	config.SetConfig(&config.Config{
+		CryptoKey: privPath,
+	}, logger)
+
+	router := chi.NewRouter()
+	router.Use(DecryptCryptoMiddleware(logger))
+	router.Post("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader([]byte("not-json")))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+
+	badPayload := map[string]string{
+		"key":  "!!!not-base64!!!",
+		"data": "!!!not-base64!!!",
+	}
+	badBytes, err := json.Marshal(badPayload)
+	require.NoError(t, err)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(badBytes))
+	rr2 := httptest.NewRecorder()
+	router.ServeHTTP(rr2, req2)
+	require.Equal(t, http.StatusBadRequest, rr2.Code)
+}
+
+func encryptionTestKeyPairFiles(t *testing.T) (pubPath, privPath string) {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	privBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privBlock := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privBytes,
+	}
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+	pubBlock := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubBytes,
+	}
+
+	tempDir := t.TempDir()
+	privPath = tempDir + "/private.pem"
+	pubPath = tempDir + "/public.pem"
+
+	require.NoError(t, os.WriteFile(privPath, pem.EncodeToMemory(privBlock), 0600))
+	require.NoError(t, os.WriteFile(pubPath, pem.EncodeToMemory(pubBlock), 0644))
+
+	return pubPath, privPath
 }
