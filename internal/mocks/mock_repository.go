@@ -41,6 +41,20 @@ func (m *MockMetricsRepository) EXPECT() *MockMetricsRepositoryMockRecorder {
 	return m.recorder
 }
 
+// Flush mocks base method.
+func (m *MockMetricsRepository) Flush(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Flush", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Flush indicates an expected call of Flush.
+func (mr *MockMetricsRepositoryMockRecorder) Flush(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockMetricsRepository)(nil).Flush), ctx)
+}
+
 // GetAllMetrics mocks base method.
 func (m *MockMetricsRepository) GetAllMetrics(ctx context.Context) []model.Metrics {
 	m.ctrl.T.Helper()

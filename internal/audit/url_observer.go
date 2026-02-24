@@ -77,7 +77,7 @@ func (u *URLAuditObserver) Process(ctx context.Context, event AuditEvent) {
 	default:
 		eventCopy := event
 		u.pool.AddJob(func() error {
-			reqCtx, cancel := context.WithTimeout(u.ctx, config.HTTPRequestTimeout)
+			reqCtx, cancel := context.WithTimeout(context.Background(), config.HTTPRequestTimeout)
 			defer cancel()
 
 			return u.sendEvent(reqCtx, eventCopy)
@@ -136,22 +136,29 @@ func (u *URLAuditObserver) handleErrors(ctx context.Context) {
 
 func (u *URLAuditObserver) Close() {
 	u.once.Do(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+
 		if u.cancel != nil {
 			u.cancel()
 		}
+
 		if u.pool != nil {
-			u.pool.Stop()
+			u.pool.StopAndDrain(shutdownCtx)
 		}
+
 		done := make(chan struct{})
 		go func() {
 			u.errWg.Wait()
 			close(done)
 		}()
+
 		select {
 		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-shutdownCtx.Done():
 			u.logger.Warnf("URLAuditObserver: Close() timed out waiting for error handler")
 		}
+
 		if u.client != nil {
 			if transport, ok := u.client.Transport.(*http.Transport); ok {
 				transport.CloseIdleConnections()

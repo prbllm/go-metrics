@@ -25,4 +25,7 @@ type MetricsRepository interface {
 
 	// Ping проверяет доступность хранилища.
 	Ping(ctx context.Context) error
+
+	// Flush гарантирует сохранение несохранённых данных перед завершением работы.
+	Flush(ctx context.Context) error
 }

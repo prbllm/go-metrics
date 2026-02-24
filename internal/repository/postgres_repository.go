@@ -374,3 +374,8 @@ func (p *PostgresRepository) Ping(ctx context.Context) error {
 		return p.db.PingContext(ctx)
 	})
 }
+
+// Flush для PostgresRepository не выполняет дополнительных действий, так как все операции записи синхронны.
+func (p *PostgresRepository) Flush(ctx context.Context) error {
+	return nil
+}

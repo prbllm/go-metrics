@@ -32,7 +32,7 @@ func NewWorkerPoolWithQueueSize(workers int, queueSize int) *WorkerPool {
 
 func (wp *WorkerPool) Start(ctx context.Context) {
 	wp.once.Do(func() {
-		wp.ctx, wp.cancel = context.WithCancel(ctx)
+		wp.ctx, wp.cancel = context.WithCancel(context.Background())
 		for i := 0; i < wp.workers; i++ {
 			wp.wg.Add(1)
 			go func() {
@@ -78,5 +78,26 @@ func (wp *WorkerPool) Stop() {
 	}
 	wp.wg.Wait()
 	close(wp.queue)
+	close(wp.errChan)
+}
+
+func (wp *WorkerPool) StopAndDrain(ctx context.Context) {
+	close(wp.queue)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wp.wg.Wait()
+	}()
+
+	select {
+	case <-ctx.Done():
+		if wp.cancel != nil {
+			wp.cancel()
+		}
+		<-done
+	case <-done:
+	}
+
 	close(wp.errChan)
 }

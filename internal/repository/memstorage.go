@@ -95,3 +95,8 @@ func (m *MemStorage) GetAllMetrics(ctx context.Context) []model.Metrics {
 func (m *MemStorage) Ping(ctx context.Context) error {
 	return fmt.Errorf("not supported")
 }
+
+// Flush для MemStorage не требует действий, так как данные хранятся только в памяти.
+func (m *MemStorage) Flush(ctx context.Context) error {
+	return nil
+}
