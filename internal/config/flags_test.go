@@ -91,6 +91,15 @@ func TestParseAgentFlags(t *testing.T) {
 				return cfg
 			},
 		},
+		{
+			name: "Agent crypto key flag",
+			args: []string{"-crypto-key", "/tmp/public.pem"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.CryptoKey = "/tmp/public.pem"
+				return cfg
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -227,6 +236,15 @@ func TestParseServerFlags(t *testing.T) {
 				cfg.Restore = true
 				cfg.DatabaseDSN = "postgres://user:pass@localhost/db"
 				cfg.Key = "server-secret-key"
+				return cfg
+			},
+		},
+		{
+			name: "Server crypto key flag",
+			args: []string{"-crypto-key", "/tmp/private.pem"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.CryptoKey = "/tmp/private.pem"
 				return cfg
 			},
 		},

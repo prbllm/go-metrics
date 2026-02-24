@@ -22,6 +22,7 @@ type Config struct {
 	Restore         bool          // Флаг восстановления метрик из файла
 	DatabaseDSN     string        // Строка подключения к базе данных
 	Key             string        // Ключ для вычисления хеша
+	CryptoKey       string        // Путь к файлу с ключом для шифрования
 	RateLimit       int           // Лимит запросов в секунду
 	AuditFile       string        // Путь к файлу аудита
 	AuditURL        string        // URL для отправки событий аудита
@@ -40,6 +41,7 @@ func defaultConfig() *Config {
 		Restore:             defaultRestore,
 		DatabaseDSN:         defaultDatabaseDSN,
 		Key:                 defaultKey,
+		CryptoKey:           defaultCryptoKey,
 		RateLimit:           defaultRateLimit,
 		AuditFile:           defaultAuditFile,
 		AuditURL:            defaultAuditURL,
@@ -115,6 +117,13 @@ func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
 		logger.Warnf("failed to get key from environment: %v", err)
 	} else {
 		c.Key = key
+	}
+
+	cryptoKey, err := GetEnvironment(CryptoKeyEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get crypto key from environment: %v", err)
+	} else {
+		c.CryptoKey = cryptoKey
 	}
 
 	switch flagsetName {

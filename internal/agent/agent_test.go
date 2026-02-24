@@ -2,14 +2,21 @@ package agent
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/encryption"
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
 	"github.com/stretchr/testify/require"
@@ -624,4 +631,143 @@ func TestAgentSendMetricsBatchJSON_HashComputation(t *testing.T) {
 	require.NoError(t, err, "Should marshal metrics batch to JSON")
 	expectedHash := hash.ComputeHash(testKey, jsonData)
 	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
+}
+
+func TestAgentSendMetricsJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T) {
+	commonValue := float64(1.0)
+	testKey := "test-crypto-key"
+
+	pubPath, privPath := generateRSAKeyPairFilesForAgent(t)
+
+	var receivedBody []byte
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+
+		var payload struct {
+			Key  string `json:"key"`
+			Data string `json:"data"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		require.NoError(t, err)
+
+		encKey, err := base64.StdEncoding.DecodeString(payload.Key)
+		require.NoError(t, err)
+		cipherData, err := base64.StdEncoding.DecodeString(payload.Data)
+		require.NoError(t, err)
+
+		plaintext, err := encryption.DecryptHybrid(privPath, encKey, cipherData)
+		require.NoError(t, err)
+		receivedBody = plaintext
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        testKey,
+		CryptoKey:  pubPath,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send encrypted metrics successfully")
+	require.NotEmpty(t, receivedBody, "Decrypted body should be captured")
+
+	expectedHash := hash.ComputeHash(testKey, receivedBody)
+	require.Equal(t, expectedHash, receivedHash, "Hash should be computed from original JSON body")
+}
+
+func TestAgentSendMetricsBatchJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T) {
+	commonValue := float64(1.0)
+	testKey := "test-crypto-key-batch"
+
+	pubPath, privPath := generateRSAKeyPairFilesForAgent(t)
+
+	var receivedBody []byte
+	var receivedHash string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHash = r.Header.Get(config.HashSHA256Header)
+
+		var payload struct {
+			Key  string `json:"key"`
+			Data string `json:"data"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		require.NoError(t, err)
+
+		encKey, err := base64.StdEncoding.DecodeString(payload.Key)
+		require.NoError(t, err)
+		cipherData, err := base64.StdEncoding.DecodeString(payload.Data)
+		require.NoError(t, err)
+
+		plaintext, err := encryption.DecryptHybrid(privPath, encKey, cipherData)
+		require.NoError(t, err)
+		receivedBody = plaintext
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+		Key:        testKey,
+		CryptoKey:  pubPath,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send encrypted batch successfully")
+	require.NotEmpty(t, receivedBody, "Decrypted batch body should be captured")
+
+	expectedHash := hash.ComputeHash(testKey, receivedBody)
+	require.Equal(t, expectedHash, receivedHash, "Hash should be computed from original JSON batch body")
+}
+
+func generateRSAKeyPairFilesForAgent(t *testing.T) (pubPath, privPath string) {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	privBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privBlock := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privBytes,
+	}
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+	pubBlock := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubBytes,
+	}
+
+	tempDir, err := os.MkdirTemp("", "agent-crypto-*")
+	require.NoError(t, err)
+
+	privPath = tempDir + "/private.pem"
+	pubPath = tempDir + "/public.pem"
+
+	require.NoError(t, os.WriteFile(privPath, pem.EncodeToMemory(privBlock), 0600))
+	require.NoError(t, os.WriteFile(pubPath, pem.EncodeToMemory(pubBlock), 0644))
+
+	return pubPath, privPath
 }

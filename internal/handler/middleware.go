@@ -3,6 +3,8 @@ package handler
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/encryption"
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/logger"
 )
@@ -33,6 +36,64 @@ func LoggingMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
 				duration,
 				r.RemoteAddr,
 			)
+		})
+	}
+}
+
+// DecryptCryptoMiddleware создает middleware для расшифровки зашифрованного тела запроса.
+func DecryptCryptoMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
+	type encryptedPayload struct {
+		Key  string `json:"key"`
+		Data string `json:"data"`
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			cfg := config.GetConfig()
+			if cfg.CryptoKey == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+				return
+			}
+			if len(bodyBytes) == 0 {
+				http.Error(w, "Empty encrypted body", http.StatusBadRequest)
+				return
+			}
+
+			var payload encryptedPayload
+			if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+				http.Error(w, "Invalid encrypted payload", http.StatusBadRequest)
+				return
+			}
+
+			encKey, err := base64.StdEncoding.DecodeString(payload.Key)
+			if err != nil {
+				http.Error(w, "Invalid encrypted key", http.StatusBadRequest)
+				return
+			}
+
+			cipherData, err := base64.StdEncoding.DecodeString(payload.Data)
+			if err != nil {
+				http.Error(w, "Invalid encrypted data", http.StatusBadRequest)
+				return
+			}
+
+			plaintext, err := encryption.DecryptHybrid(cfg.CryptoKey, encKey, cipherData)
+			if err != nil {
+				http.Error(w, "Invalid crypto", http.StatusBadRequest)
+				return
+			}
+
+			r.Body = io.NopCloser(bytes.NewReader(plaintext))
+			r.ContentLength = int64(len(plaintext))
+			r.Header.Del(config.ContentEncodingHeader)
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }

@@ -3,7 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +24,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
+	"github.com/prbllm/go-metrics/internal/encryption"
 	"github.com/prbllm/go-metrics/internal/handler"
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
@@ -1135,6 +1141,109 @@ func TestHashValidationMiddlewareIntegration(t *testing.T) {
 		body, _ := io.ReadAll(resp.Body)
 		require.Contains(t, string(body), "Invalid hash", "Error message should indicate invalid hash")
 	})
+}
+
+func TestCryptoAndHashIntegration(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+
+	pubPath, privPath := generateRSAKeyPairFilesForServer(t)
+
+	testKey := "test-crypto-hash-key"
+	config.SetConfig(&config.Config{
+		Key:       testKey,
+		CryptoKey: privPath,
+	}, logger)
+
+	storage := repository.NewMemStorage(logger)
+	metricsService := service.NewMetricsService(storage)
+	handlers := handler.NewHandlers(metricsService, logger)
+
+	router := chi.NewRouter()
+	router.Use(
+		handler.DecryptCryptoMiddleware(logger),
+		handler.HashValidationMiddleware(logger),
+	)
+	router.Route(config.CommonPath, func(r chi.Router) {
+		r.Route(config.UpdatePath, func(r chi.Router) {
+			r.Post("/", handlers.UpdateMetricHandlerByJSON)
+		})
+	})
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	metric := model.Metrics{
+		ID:    "crypto_hash_metric",
+		MType: model.Gauge,
+		Value: func() *float64 { v := 99.99; return &v }(),
+	}
+
+	jsonData, err := json.Marshal(metric)
+	require.NoError(t, err)
+
+	hashValue := hash.ComputeHash(testKey, jsonData)
+
+	encKey, ciphertext, err := encryption.EncryptHybrid(pubPath, jsonData)
+	require.NoError(t, err)
+
+	payload := struct {
+		Key  string `json:"key"`
+		Data string `json:"data"`
+	}{
+		Key:  base64.StdEncoding.EncodeToString(encKey),
+		Data: base64.StdEncoding.EncodeToString(ciphertext),
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, server.URL+config.UpdatePath, bytes.NewBuffer(payloadBytes))
+	require.NoError(t, err)
+	req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
+	req.Header.Set(config.HashSHA256Header, hashValue)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Request should succeed with valid crypto and hash")
+
+	savedMetric, err := storage.GetMetric(context.Background(), &model.Metrics{
+		ID:    "crypto_hash_metric",
+		MType: model.Gauge,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, savedMetric.Value)
+	require.Equal(t, 99.99, *savedMetric.Value)
+}
+
+func generateRSAKeyPairFilesForServer(t *testing.T) (pubPath, privPath string) {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	privBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privBlock := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privBytes,
+	}
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+	pubBlock := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubBytes,
+	}
+
+	tempDir := t.TempDir()
+	privPath = tempDir + "/private.pem"
+	pubPath = tempDir + "/public.pem"
+
+	require.NoError(t, os.WriteFile(privPath, pem.EncodeToMemory(privBlock), 0600))
+	require.NoError(t, os.WriteFile(pubPath, pem.EncodeToMemory(pubBlock), 0644))
+
+	return pubPath, privPath
 }
 
 func TestServerAuditIntegration(t *testing.T) {
