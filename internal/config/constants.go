@@ -40,6 +40,12 @@ const (
 )
 
 const (
+	ConfigEnvVar     = "CONFIG"
+	ConfigFlagShort  = "c"
+	ConfigFlagLong   = "config"
+)
+
+const (
 	serverHostFlag              = "a"
 	reportIntervalOrRestoreFlag = "r"
 	pollIntervalFlag            = "p"

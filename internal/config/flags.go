@@ -9,10 +9,13 @@ import (
 	"github.com/prbllm/go-metrics/internal/logger"
 )
 
-func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorHandling, logger logger.Logger) *Config {
-	logger.Infof("Parsing flags for %s, flags: %v", flagsetName, args)
+// ParseFlagsWithBase парсит флаги поверх переданной базовой конфигурации.
+// Это позволяет использовать значения из JSON-конфига или других источников
+// в качестве стартовых, а флагам только переопределять их.
+func ParseFlagsWithBase(flagsetName string, base *Config, args []string, flagErrorHandling flag.ErrorHandling, logger logger.Logger) *Config {
+	logger.Infof("Parsing flags for %s, base: %+v, flags: %v", flagsetName, base, args)
 
-	config := defaultConfig()
+	config := *base
 	fs := flag.NewFlagSet(flagsetName, flagErrorHandling)
 
 	fs.StringVar(&config.ServerHost, serverHostFlag, config.ServerHost, serverHostDescription)
@@ -21,14 +24,19 @@ func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorH
 
 	switch flagsetName {
 	case AgentFlagsSet:
-		parseAgentFlags(fs, config, args)
+		parseAgentFlags(fs, &config, args)
 	case ServerFlagsSet:
-		parseServerFlags(fs, config, args)
+		parseServerFlags(fs, &config, args)
 	default:
 		logger.Errorf("invalid flagset name: %s", flagsetName)
 	}
 
-	return config
+	return &config
+}
+
+// ParseFlags сохраняет существующее поведение: флаги парсятся поверх значений по умолчанию.
+func ParseFlags(flagsetName string, args []string, flagErrorHandling flag.ErrorHandling, logger logger.Logger) *Config {
+	return ParseFlagsWithBase(flagsetName, defaultConfig(), args, flagErrorHandling, logger)
 }
 
 func parseAgentFlags(fs *flag.FlagSet, config *Config, args []string) {
