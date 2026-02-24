@@ -49,11 +49,30 @@ func defaultConfig() *Config {
 	}
 }
 
-// InitConfig инициализирует глобальную конфигурацию из флагов и переменных окружения.
+// InitConfig инициализирует глобальную конфигурацию из JSON-файла, флагов и переменных окружения.
 func InitConfig(flagsetName string, logger logger.Logger) error {
-	globalConfig = ParseFlags(flagsetName, os.Args[1:], flag.ExitOnError, logger)
-	globalConfig.loadFromEnvironment(flagsetName, logger)
-	return globalConfig.Validate()
+	args := os.Args[1:]
+
+	cfg := defaultConfig()
+
+	configPath := detectConfigFilePath(flagsetName, args, logger)
+	if configPath != "" {
+		jsonCfg, err := loadJSONConfig(configPath, flagsetName, logger)
+		if err != nil {
+			return err
+		}
+		mergeConfig(cfg, jsonCfg)
+	}
+
+	cfg = ParseFlagsWithBase(flagsetName, cfg, args, flag.ExitOnError, logger)
+	cfg.loadFromEnvironment(flagsetName, logger)
+
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	SetConfig(cfg, logger)
+	return nil
 }
 
 // GetConfig возвращает глобальную конфигурацию.
@@ -133,6 +152,69 @@ func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
 		c.loadServerEnvironmets(logger)
 	default:
 		logger.Errorf("invalid flagset name: %s", flagsetName)
+	}
+}
+
+// detectConfigFilePath определяет путь к JSON-конфигу с учётом приоритета
+// переменной окружения CONFIG над флагами -c/-config.
+func detectConfigFilePath(flagsetName string, args []string, logger logger.Logger) string {
+	envPath, ok := os.LookupEnv(ConfigEnvVar)
+
+	var flagPath string
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "-"+ConfigFlagShort || args[i] == "-"+ConfigFlagLong {
+			flagPath = args[i+1]
+			break
+		}
+	}
+
+	if ok && envPath != "" {
+		if flagPath != "" && flagPath != envPath {
+			logger.Warnf("both CONFIG env and -c/-config flag are set; using CONFIG=%s", envPath)
+		}
+		return envPath
+	}
+
+	return flagPath
+}
+
+// mergeConfig переносит только явно заданные в src значения в dst.
+// Это позволяет использовать JSON-конфиг как слой ниже флагов и окружения.
+func mergeConfig(dst *Config, src *Config) {
+	if src == nil || dst == nil {
+		return
+	}
+
+	if src.ServerHost != "" {
+		dst.ServerHost = src.ServerHost
+	}
+
+	if src.StoreInterval > 0 {
+		dst.StoreInterval = src.StoreInterval
+	}
+
+	if src.FileStoragePath != "" {
+		dst.FileStoragePath = src.FileStoragePath
+	}
+
+	if src.DatabaseDSN != "" {
+		dst.DatabaseDSN = src.DatabaseDSN
+	}
+
+	if src.Restore {
+		dst.Restore = true
+	}
+
+	if src.AgentReportInterval > 0 {
+		dst.AgentReportInterval = src.AgentReportInterval
+	}
+
+	if src.AgentPollInterval > 0 {
+		dst.AgentPollInterval = src.AgentPollInterval
+	}
+
+	if src.CryptoKey != "" {
+		dst.CryptoKey = src.CryptoKey
 	}
 }
 
