@@ -209,13 +209,99 @@ func (a *Agent) compressJSON(jsonData []byte) ([]byte, error) {
 	return compression.CompressData(jsonData)
 }
 
+// prepareMetricBodyAndHash подготавливает тело запроса и значение хэша
+// для одиночной метрики с учётом настроек шифрования и сжатия.
+func (a *Agent) prepareMetricBodyAndHash(cfg *config.Config, jsonData []byte) (body []byte, hashValue string, isEncrypted bool, err error) {
+	if cfg.CryptoKey != "" {
+		encryptedKey, ciphertext, err := encryption.EncryptHybrid(cfg.CryptoKey, jsonData)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("error encrypting JSON data: %w", err)
+		}
+
+		payload := struct {
+			Key  string `json:"key"`
+			Data string `json:"data"`
+		}{
+			Key:  base64.StdEncoding.EncodeToString(encryptedKey),
+			Data: base64.StdEncoding.EncodeToString(ciphertext),
+		}
+
+		body, err = json.Marshal(payload)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("error marshaling encrypted payload: %w", err)
+		}
+
+		a.logger.Info("Sending metric via encrypted JSON")
+		isEncrypted = true
+	} else {
+		compressedData, err := a.compressJSON(jsonData)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("error compressing JSON data: %w", err)
+		}
+
+		stats := compression.GetCompressionStats(jsonData, compressedData)
+		a.logger.Info("Sending metric via compressed JSON")
+		a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
+			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
+
+		body = compressedData
+	}
+
+	if cfg.Key != "" {
+		hashValue = hash.ComputeHash(cfg.Key, jsonData)
+	}
+
+	return body, hashValue, isEncrypted, nil
+}
+
+// prepareBatchBodyAndHash подготавливает тело запроса и значение хэша
+// для батча метрик с учётом настроек шифрования и сжатия.
+func (a *Agent) prepareBatchBodyAndHash(cfg *config.Config, jsonData []byte, metricsCount int) (body []byte, hashValue string, isEncrypted bool, err error) {
+	if cfg.CryptoKey != "" {
+		encryptedKey, ciphertext, err := encryption.EncryptHybrid(cfg.CryptoKey, jsonData)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("error encrypting JSON data: %w", err)
+		}
+
+		payload := struct {
+			Key  string `json:"key"`
+			Data string `json:"data"`
+		}{
+			Key:  base64.StdEncoding.EncodeToString(encryptedKey),
+			Data: base64.StdEncoding.EncodeToString(ciphertext),
+		}
+
+		body, err = json.Marshal(payload)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("error marshaling encrypted payload: %w", err)
+		}
+
+		a.logger.Infof("Sending batch of %d metrics via encrypted JSON", metricsCount)
+		isEncrypted = true
+	} else {
+		compressedData, err := a.compressJSON(jsonData)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("error compressing JSON data: %w", err)
+		}
+
+		stats := compression.GetCompressionStats(jsonData, compressedData)
+		a.logger.Infof("Sending batch of %d metrics via compressed JSON", metricsCount)
+		a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
+			stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
+
+		body = compressedData
+	}
+
+	if cfg.Key != "" {
+		hashValue = hash.ComputeHash(cfg.Key, jsonData)
+	}
+
+	return body, hashValue, isEncrypted, nil
+}
+
 func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
-	}
-	type encryptedPayload struct {
-		Key  string `json:"key"`
-		Data string `json:"data"`
 	}
 
 	for _, metric := range metrics {
@@ -231,49 +317,25 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 		updateURL := a.getBaseURL() + config.UpdatePath
 		cfg := config.GetConfig()
 
+		body, hashValue, isEncrypted, err := a.prepareMetricBodyAndHash(cfg, jsonData)
+		if err != nil {
+			cancel()
+			a.logger.Warnf("Error preparing metric request body: %v. Skipping...", err)
+			continue
+		}
+
 		response, err := retry.RetryWithBackoffHTTP(reqCtx, a.logger, func() (*http.Response, error) {
-			var body []byte
-
-			if cfg.CryptoKey != "" {
-				encryptedKey, ciphertext, err := encryption.EncryptHybrid(cfg.CryptoKey, jsonData)
-				if err != nil {
-					return nil, fmt.Errorf("error encrypting JSON data: %w", err)
-				}
-				payload := encryptedPayload{
-					Key:  base64.StdEncoding.EncodeToString(encryptedKey),
-					Data: base64.StdEncoding.EncodeToString(ciphertext),
-				}
-				body, err = json.Marshal(payload)
-				if err != nil {
-					return nil, fmt.Errorf("error marshaling encrypted payload: %w", err)
-				}
-				a.logger.Info("Sending metric via encrypted JSON")
-			} else {
-				compressedData, err := a.compressJSON(jsonData)
-				if err != nil {
-					return nil, fmt.Errorf("error compressing JSON data: %w", err)
-				}
-
-				stats := compression.GetCompressionStats(jsonData, compressedData)
-				a.logger.Info("Sending metric via compressed JSON")
-				a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
-					stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
-
-				body = compressedData
-			}
-
 			req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, updateURL, bytes.NewBuffer(body))
 			if err != nil {
 				return nil, fmt.Errorf("error creating request: %w", err)
 			}
 
 			req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
-			if cfg.CryptoKey == "" {
+			if !isEncrypted {
 				req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
 			}
 
-			if cfg.Key != "" {
-				hashValue := hash.ComputeHash(cfg.Key, jsonData)
+			if hashValue != "" {
 				req.Header.Set(config.HashSHA256Header, hashValue)
 			}
 
@@ -312,52 +374,23 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 	batchURL := a.getBatchURL()
 	cfg := config.GetConfig()
 
+	body, hashValue, isEncrypted, err := a.prepareBatchBodyAndHash(cfg, jsonData, len(metrics))
+	if err != nil {
+		return fmt.Errorf("error preparing metrics batch request body: %w", err)
+	}
+
 	response, err := retry.RetryWithBackoffHTTP(reqCtx, a.logger, func() (*http.Response, error) {
-		var body []byte
-
-		if cfg.CryptoKey != "" {
-			encryptedKey, ciphertext, err := encryption.EncryptHybrid(cfg.CryptoKey, jsonData)
-			if err != nil {
-				return nil, fmt.Errorf("error encrypting JSON data: %w", err)
-			}
-			payload := struct {
-				Key  string `json:"key"`
-				Data string `json:"data"`
-			}{
-				Key:  base64.StdEncoding.EncodeToString(encryptedKey),
-				Data: base64.StdEncoding.EncodeToString(ciphertext),
-			}
-			body, err = json.Marshal(payload)
-			if err != nil {
-				return nil, fmt.Errorf("error marshaling encrypted payload: %w", err)
-			}
-			a.logger.Infof("Sending batch of %d metrics via encrypted JSON", len(metrics))
-		} else {
-			compressedData, err := a.compressJSON(jsonData)
-			if err != nil {
-				return nil, fmt.Errorf("error compressing JSON data: %w", err)
-			}
-
-			stats := compression.GetCompressionStats(jsonData, compressedData)
-			a.logger.Infof("Sending batch of %d metrics via compressed JSON", len(metrics))
-			a.logger.Debugf("Compression stats: original=%d bytes, compressed=%d bytes, ratio=%.2f",
-				stats.OriginalSize, stats.CompressedSize, stats.CompressionRatio)
-
-			body = compressedData
-		}
-
 		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, batchURL, bytes.NewBuffer(body))
 		if err != nil {
 			return nil, fmt.Errorf("error creating batch request: %w", err)
 		}
 
 		req.Header.Set(config.ContentTypeHeader, config.ContentTypeJSON)
-		if cfg.CryptoKey == "" {
+		if !isEncrypted {
 			req.Header.Set(config.ContentEncodingHeader, config.ContentEncodingGzip)
 		}
 
-		if cfg.Key != "" {
-			hashValue := hash.ComputeHash(cfg.Key, jsonData)
+		if hashValue != "" {
 			req.Header.Set(config.HashSHA256Header, hashValue)
 		}
 
