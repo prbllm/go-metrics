@@ -57,11 +57,9 @@ func InitConfig(flagsetName string, logger logger.Logger) error {
 
 	configPath := detectConfigFilePath(flagsetName, args, logger)
 	if configPath != "" {
-		jsonCfg, err := loadJSONConfig(configPath, flagsetName, logger)
-		if err != nil {
+		if err := loadJSONConfig(configPath, flagsetName, cfg, logger); err != nil {
 			return err
 		}
-		mergeConfig(cfg, jsonCfg)
 	}
 
 	cfg = ParseFlagsWithBase(flagsetName, cfg, args, flag.ExitOnError, logger)
@@ -176,46 +174,6 @@ func detectConfigFilePath(flagsetName string, args []string, logger logger.Logge
 	}
 
 	return flagPath
-}
-
-// mergeConfig переносит только явно заданные в src значения в dst.
-// Это позволяет использовать JSON-конфиг как слой ниже флагов и окружения.
-func mergeConfig(dst *Config, src *Config) {
-	if src == nil || dst == nil {
-		return
-	}
-
-	if src.ServerHost != "" {
-		dst.ServerHost = src.ServerHost
-	}
-
-	if src.StoreInterval > 0 {
-		dst.StoreInterval = src.StoreInterval
-	}
-
-	if src.FileStoragePath != "" {
-		dst.FileStoragePath = src.FileStoragePath
-	}
-
-	if src.DatabaseDSN != "" {
-		dst.DatabaseDSN = src.DatabaseDSN
-	}
-
-	if src.Restore {
-		dst.Restore = true
-	}
-
-	if src.AgentReportInterval > 0 {
-		dst.AgentReportInterval = src.AgentReportInterval
-	}
-
-	if src.AgentPollInterval > 0 {
-		dst.AgentPollInterval = src.AgentPollInterval
-	}
-
-	if src.CryptoKey != "" {
-		dst.CryptoKey = src.CryptoKey
-	}
 }
 
 func (c *Config) loadAgentEnvironmets(logger logger.Logger) {
