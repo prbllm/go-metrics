@@ -35,9 +35,10 @@ func TestLoadJSONConfig_Server(t *testing.T) {
 		"crypto_key": "/tmp/json-server-key.pem"
 	}`)
 
-	cfg, err := loadJSONConfig(path, ServerFlagsSet, logger)
+	cfg := defaultConfig()
+
+	err := loadJSONConfig(path, ServerFlagsSet, cfg, logger)
 	require.NoError(t, err)
-	require.NotNil(t, cfg)
 
 	assert.Equal(t, "json-server:8080", cfg.ServerHost)
 	assert.Equal(t, true, cfg.Restore)
@@ -45,6 +46,24 @@ func TestLoadJSONConfig_Server(t *testing.T) {
 	assert.Equal(t, "/tmp/json-metrics.db", cfg.FileStoragePath)
 	assert.Equal(t, "postgres://json:pass@localhost/db", cfg.DatabaseDSN)
 	assert.Equal(t, "/tmp/json-server-key.pem", cfg.CryptoKey)
+}
+
+func TestLoadJSONConfig_ServerRestoreFalseExplicit(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+
+	path := writeTempConfigFile(t, `{
+		"address": "json-server:8080",
+		"restore": false
+	}`)
+
+	cfg := defaultConfig()
+	cfg.Restore = true
+
+	err := loadJSONConfig(path, ServerFlagsSet, cfg, logger)
+	require.NoError(t, err)
+
+	assert.Equal(t, "json-server:8080", cfg.ServerHost)
+	assert.Equal(t, false, cfg.Restore)
 }
 
 func TestLoadJSONConfig_Agent(t *testing.T) {
@@ -57,9 +76,10 @@ func TestLoadJSONConfig_Agent(t *testing.T) {
 		"crypto_key": "/tmp/json-agent-key.pem"
 	}`)
 
-	cfg, err := loadJSONConfig(path, AgentFlagsSet, logger)
+	cfg := defaultConfig()
+
+	err := loadJSONConfig(path, AgentFlagsSet, cfg, logger)
 	require.NoError(t, err)
-	require.NotNil(t, cfg)
 
 	assert.Equal(t, "json-server:8080", cfg.ServerHost)
 	assert.Equal(t, 5*time.Second, cfg.AgentReportInterval)
@@ -74,7 +94,9 @@ func TestLoadJSONConfig_InvalidDuration(t *testing.T) {
 		"store_interval": "not-a-duration"
 	}`)
 
-	_, err := loadJSONConfig(path, ServerFlagsSet, logger)
+	cfg := defaultConfig()
+
+	err := loadJSONConfig(path, ServerFlagsSet, cfg, logger)
 	require.Error(t, err)
 }
 

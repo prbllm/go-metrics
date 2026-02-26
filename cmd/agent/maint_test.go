@@ -13,8 +13,8 @@ import (
 	"github.com/prbllm/go-metrics/internal/agent"
 	"github.com/prbllm/go-metrics/internal/compression"
 	"github.com/prbllm/go-metrics/internal/config"
-	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
+	"github.com/prbllm/go-metrics/internal/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -123,9 +123,7 @@ func TestAgentJSONIntegration_WithHashHeader(t *testing.T) {
 		require.NotEmpty(t, metric.ID, "Metric ID should not be empty")
 		require.NotEmpty(t, metric.MType, "Metric type should not be empty")
 
-		jsonData, err := json.Marshal(metric)
-		require.NoError(t, err, "Failed to marshal metric to JSON")
-		expectedHash := hash.ComputeHash(testKey, jsonData)
+		expectedHash := testutil.MustHashFromJSON(t, testKey, metric)
 		require.Equal(t, expectedHash, hashHeader, "Hash should be computed correctly based on key and original JSON body")
 
 		receivedMetrics = append(receivedMetrics, metric)
@@ -233,9 +231,7 @@ func TestAgentBatchJSONIntegration_WithHashHeader(t *testing.T) {
 		require.NotEmpty(t, metrics, "Should have received metrics")
 		require.Greater(t, len(metrics), 0, "Should have received at least one metric")
 
-		jsonData, err := json.Marshal(metrics)
-		require.NoError(t, err, "Failed to marshal metrics batch to JSON")
-		expectedHash := hash.ComputeHash(testKey, jsonData)
+		expectedHash := testutil.MustHashFromJSON(t, testKey, metrics)
 		require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
 
 		receivedMetrics = append(receivedMetrics, metrics...)

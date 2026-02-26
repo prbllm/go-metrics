@@ -19,6 +19,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/encryption"
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/model"
+	"github.com/prbllm/go-metrics/internal/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -536,9 +537,7 @@ func TestAgentSendMetricsJSON_HashComputation(t *testing.T) {
 	require.NoError(t, err, "Should send metrics successfully")
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present")
 
-	jsonData, err := json.Marshal(metrics[0])
-	require.NoError(t, err, "Should marshal metric to JSON")
-	expectedHash := hash.ComputeHash(testKey, jsonData)
+	expectedHash := testutil.MustHashFromJSON(t, testKey, metrics[0])
 	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
 }
 
@@ -627,9 +626,7 @@ func TestAgentSendMetricsBatchJSON_HashComputation(t *testing.T) {
 	require.NoError(t, err, "Should send metrics batch successfully")
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present")
 
-	jsonData, err := json.Marshal(metrics)
-	require.NoError(t, err, "Should marshal metrics batch to JSON")
-	expectedHash := hash.ComputeHash(testKey, jsonData)
+	expectedHash := testutil.MustHashFromJSON(t, testKey, metrics)
 	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
 }
 
