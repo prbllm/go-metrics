@@ -240,6 +240,111 @@ func TestHashValidationMiddleware(t *testing.T) {
 	}
 }
 
+func TestTrustedSubnetMiddleware(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+
+	t.Run("no trusted subnet configured - passes without header", func(t *testing.T) {
+		config.SetConfig(config.GetConfig(), logger)
+
+		router := chi.NewRouter()
+		router.Use(TrustedSubnetMiddleware(logger))
+		router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("trusted subnet configured - header in subnet", func(t *testing.T) {
+		cfg := *config.GetConfig()
+		cfg.TrustedSubnet = "127.0.0.0/8"
+		config.SetConfig(&cfg, logger)
+
+		router := chi.NewRouter()
+		router.Use(TrustedSubnetMiddleware(logger))
+		router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set(config.RealIPHeader, "127.0.0.1")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("trusted subnet configured - header outside subnet", func(t *testing.T) {
+		cfg := *config.GetConfig()
+		cfg.TrustedSubnet = "127.0.0.0/8"
+		config.SetConfig(&cfg, logger)
+
+		router := chi.NewRouter()
+		router.Use(TrustedSubnetMiddleware(logger))
+		router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set(config.RealIPHeader, "10.0.0.1")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusForbidden, rr.Code)
+	})
+
+	t.Run("trusted subnet configured - no header", func(t *testing.T) {
+		cfg := *config.GetConfig()
+		cfg.TrustedSubnet = "127.0.0.0/8"
+		config.SetConfig(&cfg, logger)
+
+		router := chi.NewRouter()
+		router.Use(TrustedSubnetMiddleware(logger))
+		router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusForbidden, rr.Code)
+	})
+
+	t.Run("trusted subnet configured - invalid IP header", func(t *testing.T) {
+		cfg := *config.GetConfig()
+		cfg.TrustedSubnet = "127.0.0.0/8"
+		config.SetConfig(&cfg, logger)
+
+		router := chi.NewRouter()
+		router.Use(TrustedSubnetMiddleware(logger))
+		router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set(config.RealIPHeader, "not-an-ip")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusForbidden, rr.Code)
+	})
+}
+
 func TestDecryptCryptoMiddleware_NoCryptoKeyConfigured(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config.SetConfig(&config.Config{

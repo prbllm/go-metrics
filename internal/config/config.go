@@ -4,6 +4,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -27,6 +28,7 @@ type Config struct {
 	AuditFile       string        // Путь к файлу аудита
 	AuditURL        string        // URL для отправки событий аудита
 	PprofEnabled    bool          // Флаг включения pprof эндпоинтов
+	TrustedSubnet   string        // Доверенная подсеть в формате CIDR
 }
 
 var globalConfig *Config
@@ -46,6 +48,7 @@ func defaultConfig() *Config {
 		AuditFile:           defaultAuditFile,
 		AuditURL:            defaultAuditURL,
 		PprofEnabled:        false,
+		TrustedSubnet:       defaultTrustedSubnet,
 	}
 }
 
@@ -111,6 +114,12 @@ func (c *Config) Validate() error {
 
 	if c.RateLimit <= 0 {
 		return fmt.Errorf("rate limit must be positive")
+	}
+
+	if c.TrustedSubnet != "" {
+		if _, _, err := net.ParseCIDR(c.TrustedSubnet); err != nil {
+			return fmt.Errorf("invalid trusted subnet: %w", err)
+		}
 	}
 
 	return nil
@@ -244,5 +253,12 @@ func (c *Config) loadServerEnvironmets(logger logger.Logger) {
 		logger.Warnf("failed to get audit URL from environment: %v", err)
 	} else {
 		c.AuditURL = auditURL
+	}
+
+	trustedSubnet, err := GetEnvironment(TrustedSubnetEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get trusted subnet from environment: %v", err)
+	} else {
+		c.TrustedSubnet = trustedSubnet
 	}
 }

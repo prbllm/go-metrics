@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -187,6 +188,47 @@ func HashValidationMiddleware(logger logger.Logger) func(http.Handler) http.Hand
 			respHash := hash.ComputeHash(config.GetConfig().Key, respBytes)
 			bufferingRecorder.Header().Set(config.HashSHA256Header, respHash)
 			bufferingRecorder.FlushTo(w)
+		})
+	}
+}
+
+// TrustedSubnetMiddleware создает middleware для проверки доверенной подсети клиента по заголовку X-Real-IP.
+// Если в конфигурации не задана trusted_subnet, запросы проходят без ограничений.
+func TrustedSubnetMiddleware(logger logger.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			cfg := config.GetConfig()
+
+			if cfg.TrustedSubnet == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			ipStr := r.Header.Get(config.RealIPHeader)
+			if ipStr == "" {
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
+			}
+
+			ip := net.ParseIP(ipStr)
+			if ip == nil {
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
+			}
+
+			_, ipNet, err := net.ParseCIDR(cfg.TrustedSubnet)
+			if err != nil {
+				logger.Errorf("invalid trusted subnet configuration %q: %v", cfg.TrustedSubnet, err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			if !ipNet.Contains(ip) {
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }
