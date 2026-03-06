@@ -16,6 +16,7 @@ type serverJSONConfig struct {
 	StoreFile     string `json:"store_file"`
 	DatabaseDSN   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 type agentJSONConfig struct {
@@ -69,6 +70,10 @@ func loadJSONConfig(path string, flagsetName string, cfg *Config, log logger.Log
 
 		if s.CryptoKey != "" {
 			cfg.CryptoKey = s.CryptoKey
+		}
+
+		if s.TrustedSubnet != "" {
+			cfg.TrustedSubnet = s.TrustedSubnet
 		}
 
 	case AgentFlagsSet:

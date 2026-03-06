@@ -481,6 +481,34 @@ func TestAgentSendMetricsJSON_WithHashHeader(t *testing.T) {
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present when key is set")
 }
 
+func TestAgentSendMetricsJSON_WithRealIPHeader(t *testing.T) {
+	commonValue := float64(1.0)
+	var receivedIP string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedIP = r.Header.Get(config.RealIPHeader)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	serverURL, _ := url.Parse(server.URL)
+	cfg := &config.Config{
+		ServerHost: serverURL.Host,
+	}
+	config.SetConfig(cfg, logger)
+	agent := NewAgent(http.DefaultClient, nil, logger)
+	agent.clientIP = "203.0.113.10"
+
+	metrics := []model.Metrics{
+		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
+	}
+
+	err := agent.SendMetricsJSON(context.Background(), metrics)
+	require.NoError(t, err, "Should send metrics successfully")
+	require.Equal(t, "203.0.113.10", receivedIP, "X-Real-IP header should be set from agent client IP")
+}
+
 func TestAgentSendMetricsJSON_WithoutHashHeader(t *testing.T) {
 	commonValue := float64(1.0)
 	var receivedHash string

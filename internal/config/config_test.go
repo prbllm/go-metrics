@@ -24,6 +24,7 @@ func cleanupEnvironment() {
 		RateLimitEnvVar,
 		AuditFileEnvVar,
 		AuditURLEnvVar,
+		TrustedSubnetEnvVar,
 	}
 	for _, envVar := range envVars {
 		os.Unsetenv(envVar)
@@ -50,6 +51,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				CryptoKeyEnvVar:       "/tmp/env-crypto.pem",
 				AuditFileEnvVar:       "/tmp/env-audit.log",
 				AuditURLEnvVar:        "http://localhost:8080/audit",
+				TrustedSubnetEnvVar:   "10.0.0.0/8",
 			},
 			expectedConfig: Config{
 				ServerHost:          "env-server:9090",
@@ -63,6 +65,7 @@ func TestConfigLoadFromEnvironment(t *testing.T) {
 				CryptoKey:           "/tmp/env-crypto.pem",
 				AuditFile:           "/tmp/env-audit.log",
 				AuditURL:            "http://localhost:8080/audit",
+				TrustedSubnet:       "10.0.0.0/8",
 			},
 		},
 		{
@@ -424,6 +427,7 @@ func TestConfigValidation(t *testing.T) {
 				Restore:             false,
 				DatabaseDSN:         "",
 				RateLimit:           defaultRateLimit,
+				TrustedSubnet:       "",
 			},
 			expectError: false,
 		},
@@ -546,6 +550,22 @@ func TestConfigValidation(t *testing.T) {
 			},
 			expectError: true,
 			errorMsg:    "rate limit must be positive",
+		},
+		{
+			name: "invalid trusted subnet",
+			config: Config{
+				ServerHost:          "localhost:8080",
+				AgentPollInterval:   2 * time.Second,
+				AgentReportInterval: 10 * time.Second,
+				StoreInterval:       30 * time.Second,
+				FileStoragePath:     "metrics.json",
+				Restore:             false,
+				DatabaseDSN:         "",
+				RateLimit:           defaultRateLimit,
+				TrustedSubnet:       "not-a-cidr",
+			},
+			expectError: true,
+			errorMsg:    "invalid trusted subnet",
 		},
 	}
 

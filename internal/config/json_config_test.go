@@ -32,7 +32,8 @@ func TestLoadJSONConfig_Server(t *testing.T) {
 		"store_interval": "42s",
 		"store_file": "/tmp/json-metrics.db",
 		"database_dsn": "postgres://json:pass@localhost/db",
-		"crypto_key": "/tmp/json-server-key.pem"
+		"crypto_key": "/tmp/json-server-key.pem",
+		"trusted_subnet": "192.168.1.0/24"
 	}`)
 
 	cfg := defaultConfig()
@@ -46,6 +47,7 @@ func TestLoadJSONConfig_Server(t *testing.T) {
 	assert.Equal(t, "/tmp/json-metrics.db", cfg.FileStoragePath)
 	assert.Equal(t, "postgres://json:pass@localhost/db", cfg.DatabaseDSN)
 	assert.Equal(t, "/tmp/json-server-key.pem", cfg.CryptoKey)
+	assert.Equal(t, "192.168.1.0/24", cfg.TrustedSubnet)
 }
 
 func TestLoadJSONConfig_ServerRestoreFalseExplicit(t *testing.T) {

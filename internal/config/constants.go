@@ -16,6 +16,7 @@ const (
 	defaultKey                 = ""
 	defaultCryptoKey           = ""
 	defaultRateLimit           = 10
+	defaultTrustedSubnet       = ""
 	HTTPRequestTimeout         = 10 * time.Second
 	ShutdownTimeout            = 10 * time.Second
 	defaultAuditFile           = ""
@@ -59,6 +60,7 @@ const (
 	auditFileFlag               = "audit-file"
 	auditURLFlag                = "audit-url"
 	pprofFlag                   = "pprof"
+	trustedSubnetFlag           = "t"
 )
 
 const (
@@ -75,6 +77,7 @@ const (
 	auditFileDescription       = "Audit file path (default: empty)"
 	auditURLDescription        = "Audit URL (default: empty)"
 	pprofDescription           = "Enable pprof endpoints (default: false)"
+	trustedSubnetDescription   = "Trusted subnet in CIDR notation (e.g., 192.168.1.0/24)"
 )
 
 const (
@@ -91,6 +94,7 @@ const (
 	RateLimitEnvVar       = "RATE_LIMIT"
 	AuditFileEnvVar       = "AUDIT_FILE"
 	AuditURLEnvVar        = "AUDIT_URL"
+	TrustedSubnetEnvVar   = "TRUSTED_SUBNET"
 )
 
 const (
@@ -111,6 +115,7 @@ const (
 	AcceptEncodingHeader   = "Accept-Encoding"
 	VaryHeader             = "Vary"
 	HashSHA256Header       = "HashSHA256"
+	RealIPHeader           = "X-Real-IP"
 )
 
 const (

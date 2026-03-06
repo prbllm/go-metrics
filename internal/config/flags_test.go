@@ -249,6 +249,15 @@ func TestParseServerFlags(t *testing.T) {
 			},
 		},
 		{
+			name: "Server trusted subnet flag",
+			args: []string{"-t", "10.0.0.0/8"},
+			expected: func() Config {
+				cfg := *defaultConfig()
+				cfg.TrustedSubnet = "10.0.0.0/8"
+				return cfg
+			},
+		},
+		{
 			name: "unknown_flag_rejected",
 			args: []string{"-foo"},
 			expected: func() Config {

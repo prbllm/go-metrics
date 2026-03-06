@@ -86,6 +86,8 @@ func parseServerFlags(fs *flag.FlagSet, config *Config, args []string) {
 
 	fs.BoolVar(&config.PprofEnabled, pprofFlag, false, pprofDescription)
 
+	fs.StringVar(&config.TrustedSubnet, trustedSubnetFlag, config.TrustedSubnet, trustedSubnetDescription)
+
 	fs.Parse(processedArgs)
 
 	config.StoreInterval = time.Duration(storeIntervalSec) * time.Second

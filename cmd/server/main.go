@@ -119,6 +119,7 @@ func main() {
 	router := chi.NewRouter()
 
 	router.Use(
+		handler.TrustedSubnetMiddleware(appLogger),
 		handler.LoggingMiddleware(appLogger),
 		handler.DecryptCryptoMiddleware(appLogger),
 		handler.GzipDecompressMiddleware(appLogger),

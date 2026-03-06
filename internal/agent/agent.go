@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -25,6 +26,8 @@ type Agent struct {
 	collector       *RuntimeMetricsCollector
 	logger          logger.Logger
 	pool            *threading.WorkerPool
+	clientIPOnce    sync.Once
+	clientIP        string
 	mu              sync.RWMutex
 	runtimeMetrics  []model.Metrics
 	gopsutilMetrics []model.Metrics
@@ -35,9 +38,42 @@ func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, logger lo
 		client:          client,
 		collector:       collector,
 		logger:          logger,
+		clientIPOnce:    sync.Once{},
+		clientIP:        "",
 		runtimeMetrics:  []model.Metrics{},
 		gopsutilMetrics: []model.Metrics{},
 	}
+}
+
+func detectClientIP(logger logger.Logger) string {
+	conn, err := net.Dial("udp", "192.0.2.1:80")
+	if err != nil {
+		logger.Warnf("failed to determine agent IP: %v", err)
+		return ""
+	}
+	defer conn.Close()
+
+	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		logger.Warn("failed to determine agent IP: local address is not UDP")
+		return ""
+	}
+
+	ip := localAddr.IP.String()
+	logger.Infof("Detected agent IP: %s", ip)
+	return ip
+}
+
+func (a *Agent) getClientIP() string {
+	if a.clientIP != "" {
+		return a.clientIP
+	}
+
+	a.clientIPOnce.Do(func() {
+		a.clientIP = detectClientIP(a.logger)
+	})
+
+	return a.clientIP
 }
 
 func (a *Agent) Start(ctx context.Context) {
@@ -157,6 +193,8 @@ func (a *Agent) sendMetrics(ctx context.Context, metrics []model.Metrics) error 
 		return fmt.Errorf("client is nil")
 	}
 
+	clientIP := a.getClientIP()
+
 	for _, metric := range metrics {
 		reqCtx, cancel := context.WithTimeout(ctx, config.HTTPRequestTimeout)
 
@@ -174,6 +212,9 @@ func (a *Agent) sendMetrics(ctx context.Context, metrics []model.Metrics) error 
 			continue
 		}
 		req.Header.Set(config.ContentTypeHeader, config.ContentTypeTextPlain)
+		if clientIP != "" {
+			req.Header.Set(config.RealIPHeader, clientIP)
+		}
 		response, err := a.client.Do(req)
 		cancel()
 		if err != nil {
@@ -304,6 +345,8 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 		return fmt.Errorf("client is nil")
 	}
 
+	clientIP := a.getClientIP()
+
 	for _, metric := range metrics {
 		reqCtx, cancel := context.WithTimeout(ctx, config.HTTPRequestTimeout)
 
@@ -339,6 +382,10 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 				req.Header.Set(config.HashSHA256Header, hashValue)
 			}
 
+			if clientIP != "" {
+				req.Header.Set(config.RealIPHeader, clientIP)
+			}
+
 			return a.client.Do(req)
 		})
 		cancel()
@@ -366,6 +413,8 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 	reqCtx, cancel := context.WithTimeout(ctx, config.HTTPRequestTimeout)
 	defer cancel()
 
+	clientIP := a.getClientIP()
+
 	jsonData, err := json.Marshal(metrics)
 	if err != nil {
 		return fmt.Errorf("error marshaling metrics batch to JSON: %w", err)
@@ -392,6 +441,10 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 
 		if hashValue != "" {
 			req.Header.Set(config.HashSHA256Header, hashValue)
+		}
+
+		if clientIP != "" {
+			req.Header.Set(config.RealIPHeader, clientIP)
 		}
 
 		return a.client.Do(req)
