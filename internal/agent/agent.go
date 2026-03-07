@@ -17,8 +17,13 @@ import (
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/logger"
 	"github.com/prbllm/go-metrics/internal/model"
+	metricsv1 "github.com/prbllm/go-metrics/internal/proto/metrics/v1"
+	"github.com/prbllm/go-metrics/internal/protoadapt"
 	"github.com/prbllm/go-metrics/internal/retry"
 	"github.com/prbllm/go-metrics/internal/threading"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type Agent struct {
@@ -31,6 +36,8 @@ type Agent struct {
 	mu              sync.RWMutex
 	runtimeMetrics  []model.Metrics
 	gopsutilMetrics []model.Metrics
+	grpcConn        *grpc.ClientConn
+	metricsClient   metricsv1.MetricsClient
 }
 
 func NewAgent(client *http.Client, collector *RuntimeMetricsCollector, logger logger.Logger) *Agent {
@@ -82,6 +89,17 @@ func (a *Agent) Start(ctx context.Context) {
 	if a.collector == nil {
 		a.logger.Error("Collector is nil")
 		return
+	}
+
+	if cfg.GRPCEndpoint != "" {
+		conn, err := grpc.NewClient(cfg.GRPCEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			a.logger.Errorf("Failed to connect to gRPC server at %s: %v, using HTTP", cfg.GRPCEndpoint, err)
+		} else {
+			a.grpcConn = conn
+			a.metricsClient = metricsv1.NewMetricsClient(conn)
+			a.logger.Infof("Using gRPC to send metrics to %s", cfg.GRPCEndpoint)
+		}
 	}
 
 	a.pool = threading.NewWorkerPool(cfg.RateLimit)
@@ -148,11 +166,15 @@ func (a *Agent) Start(ctx context.Context) {
 			defer cancelShutdown()
 
 			if len(combinedMetrics) > 0 {
-				if err := a.SendMetricsBatchJSON(shutdownCtx, combinedMetrics); err != nil {
-					a.logger.Errorf("Failed to send final metrics batch during shutdown: %v", err)
+				sendErr := a.sendMetricsBatch(shutdownCtx, combinedMetrics)
+				if sendErr != nil {
+					a.logger.Errorf("Failed to send final metrics batch during shutdown: %v", sendErr)
 				}
 			}
 
+			if a.grpcConn != nil {
+				_ = a.grpcConn.Close()
+			}
 			a.pool.StopAndDrain(shutdownCtx)
 			return
 		case <-reportTicker.C:
@@ -167,7 +189,7 @@ func (a *Agent) Start(ctx context.Context) {
 				combinedMetrics := model.CombineMetrics(runtimeMetrics, gopsutilMetrics)
 				if len(combinedMetrics) > 0 {
 					a.pool.AddJob(func() error {
-						return a.SendMetricsBatchJSON(context.Background(), combinedMetrics)
+						return a.sendMetricsBatch(context.Background(), combinedMetrics)
 					})
 				}
 			}
@@ -461,6 +483,38 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 	a.logger.Debugf("Batch Response: %s", response.Status)
 	return nil
 }
+
+// sendMetricsBatch отправляет батч по gRPC или HTTP в зависимости от конфигурации.
+func (a *Agent) sendMetricsBatch(ctx context.Context, metrics []model.Metrics) error {
+	if a.metricsClient != nil {
+		return a.SendMetricsBatchGRPC(ctx, metrics)
+	}
+	return a.SendMetricsBatchJSON(ctx, metrics)
+}
+
+// SendMetricsBatchGRPC отправляет батч метрик на gRPC-сервер
+func (a *Agent) SendMetricsBatchGRPC(ctx context.Context, metrics []model.Metrics) error {
+	if a.metricsClient == nil {
+		return fmt.Errorf("gRPC metrics client is nil")
+	}
+	if len(metrics) == 0 {
+		a.logger.Debug("Skipping empty metrics batch (gRPC)")
+		return nil
+	}
+	req := protoadapt.ModelToUpdateMetricsRequest(metrics)
+	clientIP := a.getClientIP()
+	md := metadata.Pairs(config.GRPCRealIPMetadataKey, clientIP)
+	outCtx := metadata.NewOutgoingContext(ctx, md)
+	reqCtx, cancel := context.WithTimeout(outCtx, config.HTTPRequestTimeout)
+	defer cancel()
+	_, err := a.metricsClient.UpdateMetrics(reqCtx, req)
+	if err != nil {
+		return fmt.Errorf("gRPC UpdateMetrics: %w", err)
+	}
+	a.logger.Debugf("gRPC batch sent: %d metrics", len(metrics))
+	return nil
+}
+
 func (a *Agent) getBaseURL() string {
 	return fmt.Sprintf("http://%s", config.GetConfig().ServerHost)
 }
