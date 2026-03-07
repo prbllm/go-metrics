@@ -4,7 +4,7 @@ import "time"
 
 const (
 	defaultServerHost        = "localhost:8080"
-	defaultGRPCServerAddress = ":3200"
+	defaultGRPCServerAddress = ""
 )
 
 const (
@@ -82,7 +82,7 @@ const (
 	auditURLDescription        = "Audit URL (default: empty)"
 	pprofDescription           = "Enable pprof endpoints (default: false)"
 	trustedSubnetDescription   = "Trusted subnet in CIDR notation (e.g., 192.168.1.0/24)"
-	grpcAddressDescription     = "gRPC server listen address (default :3200). Set to empty to disable gRPC server"
+	grpcAddressDescription     = "gRPC server listen address (default: empty, gRPC disabled). Set to e.g. :3200 or use GRPC_ADDRESS to enable gRPC server"
 	grpcEndpointDescription    = "gRPC server address for agent (e.g. localhost:3200). If set, agent sends metrics via gRPC"
 )
 
