@@ -90,7 +90,7 @@ func TestAgentSendMetrics(t *testing.T) {
 	require.NoError(t, err, "Failed to send metrics")
 }
 
-func TestAgentSendMetricsJSON(t *testing.T) {
+func TestAgentsendMetricsJSON(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
@@ -104,11 +104,11 @@ func TestAgentSendMetricsJSON(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Failed to send metrics via JSON")
 }
 
-func TestAgentSendMetricsJSONWithNilClient(t *testing.T) {
+func TestAgentsendMetricsJSONWithNilClient(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
@@ -122,12 +122,12 @@ func TestAgentSendMetricsJSONWithNilClient(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.Error(t, err, "Expected error for nil client")
 	require.Contains(t, err.Error(), "client is nil")
 }
 
-func TestAgentSendMetricsJSONSerialization(t *testing.T) {
+func TestAgentsendMetricsJSONSerialization(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
@@ -154,7 +154,7 @@ func TestAgentSendMetricsJSONSerialization(t *testing.T) {
 	}
 }
 
-func TestAgentSendMetricsBatchJSON(t *testing.T) {
+func TestAgentsendMetricsBatchJSON(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
@@ -169,10 +169,10 @@ func TestAgentSendMetricsBatchJSON(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
-	_ = agent.SendMetricsBatchJSON(context.Background(), metrics)
+	_ = agent.sendMetricsBatchJSON(context.Background(), metrics)
 }
 
-func TestAgentSendMetricsBatchJSONWithNilClient(t *testing.T) {
+func TestAgentsendMetricsBatchJSONWithNilClient(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
@@ -188,12 +188,12 @@ func TestAgentSendMetricsBatchJSONWithNilClient(t *testing.T) {
 		{ID: "test_metric", MType: model.Counter, Delta: &commonDelta},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.Error(t, err, "Expected error for nil client")
 	require.Contains(t, err.Error(), "client is nil")
 }
 
-func TestAgentSendMetricsBatchJSONEmptyBatch(t *testing.T) {
+func TestAgentsendMetricsBatchJSONEmptyBatch(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	cfg := &config.Config{
 		ServerHost: "localhost:8080",
@@ -203,11 +203,11 @@ func TestAgentSendMetricsBatchJSONEmptyBatch(t *testing.T) {
 
 	metrics := []model.Metrics{}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Empty batch should not return error")
 }
 
-func TestAgentSendMetricsBatchJSONSerialization(t *testing.T) {
+func TestAgentsendMetricsBatchJSONSerialization(t *testing.T) {
 	commonValue := float64(1.0)
 	commonDelta := int64(1)
 
@@ -227,7 +227,7 @@ func TestAgentSendMetricsBatchJSONSerialization(t *testing.T) {
 	require.Contains(t, jsonStr, "counter", "JSON should contain counter type")
 }
 
-func TestAgentSendMetricsJSON_RetryOnRetriableHTTPStatus(t *testing.T) {
+func TestAgentsendMetricsJSON_RetryOnRetriableHTTPStatus(t *testing.T) {
 	commonValue := float64(1.0)
 	attempts := 0
 
@@ -253,12 +253,12 @@ func TestAgentSendMetricsJSON_RetryOnRetriableHTTPStatus(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should succeed after retry")
 	require.Equal(t, 3, attempts, "Should have retried 2 times (total 3 attempts)")
 }
 
-func TestAgentSendMetricsJSON_RetryExhausted(t *testing.T) {
+func TestAgentsendMetricsJSON_RetryExhausted(t *testing.T) {
 	commonValue := float64(1.0)
 	attempts := 0
 
@@ -280,12 +280,12 @@ func TestAgentSendMetricsJSON_RetryExhausted(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should not return error (skips metric after retry exhaustion)")
 	require.Equal(t, 4, attempts, "Should have exhausted all retries (1 initial + 3 retries)")
 }
 
-func TestAgentSendMetricsJSON_RetryOnDifferentRetriableStatuses(t *testing.T) {
+func TestAgentsendMetricsJSON_RetryOnDifferentRetriableStatuses(t *testing.T) {
 	commonValue := float64(1.0)
 	testCases := []struct {
 		name        string
@@ -325,7 +325,7 @@ func TestAgentSendMetricsJSON_RetryOnDifferentRetriableStatuses(t *testing.T) {
 				{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 			}
 
-			err := agent.SendMetricsJSON(context.Background(), metrics)
+			err := agent.sendMetricsJSON(context.Background(), metrics)
 			if tc.shouldRetry {
 				require.NoError(t, err, "Should succeed after retry for retriable status")
 				require.Equal(t, 2, attempts, "Should have retried once")
@@ -337,7 +337,7 @@ func TestAgentSendMetricsJSON_RetryOnDifferentRetriableStatuses(t *testing.T) {
 	}
 }
 
-func TestAgentSendMetricsBatchJSON_RetryOnRetriableHTTPStatus(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_RetryOnRetriableHTTPStatus(t *testing.T) {
 	commonValue := float64(1.0)
 	attempts := 0
 
@@ -363,12 +363,12 @@ func TestAgentSendMetricsBatchJSON_RetryOnRetriableHTTPStatus(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should succeed after retry")
 	require.Equal(t, 2, attempts, "Should have retried once (total 2 attempts)")
 }
 
-func TestAgentSendMetricsBatchJSON_RetryExhausted(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_RetryExhausted(t *testing.T) {
 	commonValue := float64(1.0)
 	attempts := 0
 
@@ -390,13 +390,13 @@ func TestAgentSendMetricsBatchJSON_RetryExhausted(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.Error(t, err, "Should return error after retry exhaustion")
 	require.Contains(t, err.Error(), "error sending metrics batch")
 	require.Equal(t, 4, attempts, "Should have exhausted all retries (1 initial + 3 retries)")
 }
 
-func TestAgentSendMetricsBatchJSON_NoRetryOnNonRetriableStatus(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_NoRetryOnNonRetriableStatus(t *testing.T) {
 	commonValue := float64(1.0)
 	attempts := 0
 
@@ -418,13 +418,13 @@ func TestAgentSendMetricsBatchJSON_NoRetryOnNonRetriableStatus(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.Error(t, err, "Should return error for non-retriable status")
 	require.Contains(t, err.Error(), "unexpected status code")
 	require.Equal(t, 1, attempts, "Should not retry for non-retriable status")
 }
 
-func TestAgentSendMetricsJSON_ContextTimeout(t *testing.T) {
+func TestAgentsendMetricsJSON_ContextTimeout(t *testing.T) {
 	commonValue := float64(1.0)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -448,11 +448,11 @@ func TestAgentSendMetricsJSON_ContextTimeout(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(ctx, metrics)
+	err := agent.sendMetricsJSON(ctx, metrics)
 	require.NoError(t, err, "Should not return error (skips metric on timeout)")
 }
 
-func TestAgentSendMetricsJSON_WithHashHeader(t *testing.T) {
+func TestAgentsendMetricsJSON_WithHashHeader(t *testing.T) {
 	commonValue := float64(1.0)
 	testKey := "test-key-123"
 	var receivedHash string
@@ -476,12 +476,12 @@ func TestAgentSendMetricsJSON_WithHashHeader(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics successfully")
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present when key is set")
 }
 
-func TestAgentSendMetricsJSON_WithRealIPHeader(t *testing.T) {
+func TestAgentsendMetricsJSON_WithRealIPHeader(t *testing.T) {
 	commonValue := float64(1.0)
 	var receivedIP string
 
@@ -497,19 +497,19 @@ func TestAgentSendMetricsJSON_WithRealIPHeader(t *testing.T) {
 		ServerHost: serverURL.Host,
 	}
 	config.SetConfig(cfg, logger)
-	agent := NewAgent(http.DefaultClient, nil, logger)
-	agent.clientIP = "203.0.113.10"
+	ag := NewAgent(http.DefaultClient, nil, logger)
 
 	metrics := []model.Metrics{
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := ag.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics successfully")
-	require.Equal(t, "203.0.113.10", receivedIP, "X-Real-IP header should be set from agent client IP")
+	require.NotEmpty(t, receivedIP, "X-Real-IP header should be set from agent client IP")
+	require.Equal(t, ag.getClientIP(), receivedIP, "X-Real-IP header should match getClientIP() result")
 }
 
-func TestAgentSendMetricsJSON_WithoutHashHeader(t *testing.T) {
+func TestAgentsendMetricsJSON_WithoutHashHeader(t *testing.T) {
 	commonValue := float64(1.0)
 	var receivedHash string
 
@@ -532,12 +532,12 @@ func TestAgentSendMetricsJSON_WithoutHashHeader(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics successfully")
 	require.Empty(t, receivedHash, "HashSHA256 header should not be present when key is empty")
 }
 
-func TestAgentSendMetricsJSON_HashComputation(t *testing.T) {
+func TestAgentsendMetricsJSON_HashComputation(t *testing.T) {
 	commonValue := float64(1.0)
 	testKey := "test-key-456"
 	var receivedHash string
@@ -561,7 +561,7 @@ func TestAgentSendMetricsJSON_HashComputation(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics successfully")
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present")
 
@@ -569,7 +569,7 @@ func TestAgentSendMetricsJSON_HashComputation(t *testing.T) {
 	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
 }
 
-func TestAgentSendMetricsBatchJSON_WithHashHeader(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_WithHashHeader(t *testing.T) {
 	commonValue := float64(1.0)
 	testKey := "test-key-789"
 	var receivedHash string
@@ -593,12 +593,12 @@ func TestAgentSendMetricsBatchJSON_WithHashHeader(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics batch successfully")
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present when key is set")
 }
 
-func TestAgentSendMetricsBatchJSON_WithoutHashHeader(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_WithoutHashHeader(t *testing.T) {
 	commonValue := float64(1.0)
 	var receivedHash string
 
@@ -621,12 +621,12 @@ func TestAgentSendMetricsBatchJSON_WithoutHashHeader(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics batch successfully")
 	require.Empty(t, receivedHash, "HashSHA256 header should not be present when key is empty")
 }
 
-func TestAgentSendMetricsBatchJSON_HashComputation(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_HashComputation(t *testing.T) {
 	commonValue := float64(1.0)
 	testKey := "test-key-batch-123"
 	var receivedHash string
@@ -650,7 +650,7 @@ func TestAgentSendMetricsBatchJSON_HashComputation(t *testing.T) {
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send metrics batch successfully")
 	require.NotEmpty(t, receivedHash, "HashSHA256 header should be present")
 
@@ -658,7 +658,7 @@ func TestAgentSendMetricsBatchJSON_HashComputation(t *testing.T) {
 	require.Equal(t, expectedHash, receivedHash, "Hash should be computed correctly based on key and original JSON body")
 }
 
-func TestAgentSendMetricsJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T) {
+func TestAgentsendMetricsJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T) {
 	commonValue := float64(1.0)
 	testKey := "test-crypto-key"
 
@@ -704,7 +704,7 @@ func TestAgentSendMetricsJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsJSON(context.Background(), metrics)
+	err := agent.sendMetricsJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send encrypted metrics successfully")
 	require.NotEmpty(t, receivedBody, "Decrypted body should be captured")
 
@@ -712,7 +712,7 @@ func TestAgentSendMetricsJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T
 	require.Equal(t, expectedHash, receivedHash, "Hash should be computed from original JSON body")
 }
 
-func TestAgentSendMetricsBatchJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T) {
+func TestAgentsendMetricsBatchJSON_WithCryptoKey_EncryptedPayloadAndHash(t *testing.T) {
 	commonValue := float64(1.0)
 	testKey := "test-crypto-key-batch"
 
@@ -758,7 +758,7 @@ func TestAgentSendMetricsBatchJSON_WithCryptoKey_EncryptedPayloadAndHash(t *test
 		{ID: "test_metric", MType: model.Gauge, Value: &commonValue},
 	}
 
-	err := agent.SendMetricsBatchJSON(context.Background(), metrics)
+	err := agent.sendMetricsBatchJSON(context.Background(), metrics)
 	require.NoError(t, err, "Should send encrypted batch successfully")
 	require.NotEmpty(t, receivedBody, "Decrypted batch body should be captured")
 

@@ -72,14 +72,9 @@ func detectClientIP(logger logger.Logger) string {
 }
 
 func (a *Agent) getClientIP() string {
-	if a.clientIP != "" {
-		return a.clientIP
-	}
-
 	a.clientIPOnce.Do(func() {
 		a.clientIP = detectClientIP(a.logger)
 	})
-
 	return a.clientIP
 }
 
@@ -362,7 +357,7 @@ func (a *Agent) prepareBatchBodyAndHash(cfg *config.Config, jsonData []byte, met
 	return body, hashValue, isEncrypted, nil
 }
 
-func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) error {
+func (a *Agent) sendMetricsJSON(ctx context.Context, metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
 	}
@@ -422,7 +417,7 @@ func (a *Agent) SendMetricsJSON(ctx context.Context, metrics []model.Metrics) er
 	return nil
 }
 
-func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metrics) error {
+func (a *Agent) sendMetricsBatchJSON(ctx context.Context, metrics []model.Metrics) error {
 	if a.client == nil {
 		return fmt.Errorf("client is nil")
 	}
@@ -487,13 +482,13 @@ func (a *Agent) SendMetricsBatchJSON(ctx context.Context, metrics []model.Metric
 // sendMetricsBatch отправляет батч по gRPC или HTTP в зависимости от конфигурации.
 func (a *Agent) sendMetricsBatch(ctx context.Context, metrics []model.Metrics) error {
 	if a.metricsClient != nil {
-		return a.SendMetricsBatchGRPC(ctx, metrics)
+		return a.sendMetricsBatchGRPC(ctx, metrics)
 	}
-	return a.SendMetricsBatchJSON(ctx, metrics)
+	return a.sendMetricsBatchJSON(ctx, metrics)
 }
 
-// SendMetricsBatchGRPC отправляет батч метрик на gRPC-сервер
-func (a *Agent) SendMetricsBatchGRPC(ctx context.Context, metrics []model.Metrics) error {
+// sendMetricsBatchGRPC отправляет батч метрик на gRPC-сервер
+func (a *Agent) sendMetricsBatchGRPC(ctx context.Context, metrics []model.Metrics) error {
 	if a.metricsClient == nil {
 		return fmt.Errorf("gRPC metrics client is nil")
 	}

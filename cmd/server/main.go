@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/config"
-	grpcpkg "github.com/prbllm/go-metrics/internal/grpc"
+	"github.com/prbllm/go-metrics/internal/grpcserver"
 	"github.com/prbllm/go-metrics/internal/handler"
 	"github.com/prbllm/go-metrics/internal/logger"
 	metricsv1 "github.com/prbllm/go-metrics/internal/proto/metrics/v1"
@@ -169,8 +169,8 @@ func main() {
 			appLogger.Errorf("Failed to listen for gRPC: %v", err)
 			os.Exit(1)
 		}
-		grpcServer = grpc.NewServer(grpc.ChainUnaryInterceptor(grpcpkg.TrustedSubnetUnaryInterceptor(appLogger)))
-		metricsv1.RegisterMetricsServer(grpcServer, grpcpkg.NewMetricsServer(metricsService))
+		grpcServer = grpc.NewServer(grpc.ChainUnaryInterceptor(grpcserver.TrustedSubnetUnaryInterceptor(appLogger)))
+		metricsv1.RegisterMetricsServer(grpcServer, grpcserver.NewMetricsServer(metricsService))
 		go func() {
 			appLogger.Infof("gRPC server starting on %s", cfg.GRPCServerAddress)
 			if err := grpcServer.Serve(lis); err != nil {
