@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/prbllm/go-metrics/internal/encryption"
 	"github.com/prbllm/go-metrics/internal/hash"
 	"github.com/prbllm/go-metrics/internal/logger"
+	"github.com/prbllm/go-metrics/internal/network"
 )
 
 // LoggingMiddleware создает middleware для логирования HTTP запросов.
@@ -198,36 +198,17 @@ func TrustedSubnetMiddleware(logger logger.Logger) func(http.Handler) http.Handl
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cfg := config.GetConfig()
-
-			if cfg.TrustedSubnet == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			ipStr := r.Header.Get(config.RealIPHeader)
-			if ipStr == "" {
-				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-				return
-			}
-
-			ip := net.ParseIP(ipStr)
-			if ip == nil {
-				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-				return
-			}
-
-			_, ipNet, err := net.ParseCIDR(cfg.TrustedSubnet)
+			allowed, err := network.IsIPInTrustedSubnet(ipStr, cfg.TrustedSubnet)
 			if err != nil {
 				logger.Errorf("invalid trusted subnet configuration %q: %v", cfg.TrustedSubnet, err)
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
-
-			if !ipNet.Contains(ip) {
+			if !allowed {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			}
-
 			next.ServeHTTP(w, r)
 		})
 	}

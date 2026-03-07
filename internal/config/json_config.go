@@ -17,6 +17,7 @@ type serverJSONConfig struct {
 	DatabaseDSN   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
 	TrustedSubnet string `json:"trusted_subnet"`
+	GRPCAddress   string `json:"grpc_address"`
 }
 
 type agentJSONConfig struct {
@@ -24,6 +25,7 @@ type agentJSONConfig struct {
 	ReportInterval string `json:"report_interval"`
 	PollInterval   string `json:"poll_interval"`
 	CryptoKey      string `json:"crypto_key"`
+	GRPCEndpoint   string `json:"grpc_endpoint"`
 }
 
 // loadJSONConfig загружает конфигурацию из JSON-файла и маппит только поддерживаемые поля
@@ -76,6 +78,10 @@ func loadJSONConfig(path string, flagsetName string, cfg *Config, log logger.Log
 			cfg.TrustedSubnet = s.TrustedSubnet
 		}
 
+		if s.GRPCAddress != "" {
+			cfg.GRPCServerAddress = s.GRPCAddress
+		}
+
 	case AgentFlagsSet:
 		var a agentJSONConfig
 		if err := json.Unmarshal(data, &a); err != nil {
@@ -108,6 +114,10 @@ func loadJSONConfig(path string, flagsetName string, cfg *Config, log logger.Log
 
 		if a.CryptoKey != "" {
 			cfg.CryptoKey = a.CryptoKey
+		}
+
+		if a.GRPCEndpoint != "" {
+			cfg.GRPCEndpoint = a.GRPCEndpoint
 		}
 	default:
 		log.Errorf("invalid flagset name for JSON config: %s", flagsetName)

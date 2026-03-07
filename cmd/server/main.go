@@ -3,21 +3,24 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/prbllm/go-metrics/internal/audit"
 	"github.com/prbllm/go-metrics/internal/config"
+	grpcpkg "github.com/prbllm/go-metrics/internal/grpc"
 	"github.com/prbllm/go-metrics/internal/handler"
 	"github.com/prbllm/go-metrics/internal/logger"
+	metricsv1 "github.com/prbllm/go-metrics/internal/proto/metrics/v1"
 	"github.com/prbllm/go-metrics/internal/repository"
 	"github.com/prbllm/go-metrics/internal/service"
 	"github.com/prbllm/go-metrics/internal/versions"
-
-	"github.com/go-chi/chi/v5"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -159,6 +162,23 @@ func main() {
 		Handler: finalHandler,
 	}
 
+	var grpcServer *grpc.Server
+	if cfg.GRPCServerAddress != "" {
+		lis, err := net.Listen("tcp", cfg.GRPCServerAddress)
+		if err != nil {
+			appLogger.Errorf("Failed to listen for gRPC: %v", err)
+			os.Exit(1)
+		}
+		grpcServer = grpc.NewServer(grpc.ChainUnaryInterceptor(grpcpkg.TrustedSubnetUnaryInterceptor(appLogger)))
+		metricsv1.RegisterMetricsServer(grpcServer, grpcpkg.NewMetricsServer(metricsService))
+		go func() {
+			appLogger.Infof("gRPC server starting on %s", cfg.GRPCServerAddress)
+			if err := grpcServer.Serve(lis); err != nil {
+				appLogger.Errorf("gRPC server error: %v", err)
+			}
+		}()
+	}
+
 	serverErr := make(chan error, 1)
 
 	go func() {
@@ -178,6 +198,11 @@ func main() {
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
 	defer shutdownCancel()
+
+	if grpcServer != nil {
+		grpcServer.GracefulStop()
+		appLogger.Info("gRPC server stopped")
+	}
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		appLogger.Errorf("Server forced to shutdown: %v", err)

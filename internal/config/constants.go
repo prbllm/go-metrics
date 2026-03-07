@@ -3,7 +3,8 @@ package config
 import "time"
 
 const (
-	defaultServerHost = "localhost:8080"
+	defaultServerHost        = "localhost:8080"
+	defaultGRPCServerAddress = ":3200"
 )
 
 const (
@@ -17,6 +18,7 @@ const (
 	defaultCryptoKey           = ""
 	defaultRateLimit           = 10
 	defaultTrustedSubnet       = ""
+	defaultGRPCEndpoint        = ""
 	HTTPRequestTimeout         = 10 * time.Second
 	ShutdownTimeout            = 10 * time.Second
 	defaultAuditFile           = ""
@@ -42,9 +44,9 @@ const (
 )
 
 const (
-	ConfigEnvVar     = "CONFIG"
-	ConfigFlagShort  = "c"
-	ConfigFlagLong   = "config"
+	ConfigEnvVar    = "CONFIG"
+	ConfigFlagShort = "c"
+	ConfigFlagLong  = "config"
 )
 
 const (
@@ -61,6 +63,8 @@ const (
 	auditURLFlag                = "audit-url"
 	pprofFlag                   = "pprof"
 	trustedSubnetFlag           = "t"
+	grpcAddressFlag             = "grpc-address"
+	grpcEndpointFlag            = "grpc-endpoint"
 )
 
 const (
@@ -78,6 +82,8 @@ const (
 	auditURLDescription        = "Audit URL (default: empty)"
 	pprofDescription           = "Enable pprof endpoints (default: false)"
 	trustedSubnetDescription   = "Trusted subnet in CIDR notation (e.g., 192.168.1.0/24)"
+	grpcAddressDescription     = "gRPC server listen address (default :3200). Set to empty to disable gRPC server"
+	grpcEndpointDescription    = "gRPC server address for agent (e.g. localhost:3200). If set, agent sends metrics via gRPC"
 )
 
 const (
@@ -95,6 +101,8 @@ const (
 	AuditFileEnvVar       = "AUDIT_FILE"
 	AuditURLEnvVar        = "AUDIT_URL"
 	TrustedSubnetEnvVar   = "TRUSTED_SUBNET"
+	GRPCAddressEnvVar     = "GRPC_ADDRESS"
+	GRPCEndpointEnvVar    = "GRPC_ENDPOINT"
 )
 
 const (
@@ -110,12 +118,16 @@ const (
 )
 
 const (
-	ContentTypeHeader      = "Content-Type"
-	ContentEncodingHeader  = "Content-Encoding"
-	AcceptEncodingHeader   = "Accept-Encoding"
-	VaryHeader             = "Vary"
-	HashSHA256Header       = "HashSHA256"
-	RealIPHeader           = "X-Real-IP"
+	ContentTypeHeader     = "Content-Type"
+	ContentEncodingHeader = "Content-Encoding"
+	AcceptEncodingHeader  = "Accept-Encoding"
+	VaryHeader            = "Vary"
+	HashSHA256Header      = "HashSHA256"
+	RealIPHeader          = "X-Real-IP"
+)
+
+const (
+	GRPCRealIPMetadataKey = "x-real-ip"
 )
 
 const (

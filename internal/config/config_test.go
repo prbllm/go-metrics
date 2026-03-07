@@ -595,7 +595,7 @@ func TestConfigString(t *testing.T) {
 		Key:                 "test-key-123",
 	}
 
-	expected := "Config{ServerHost: test-server:8080, AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true, DatabaseDSN: postgres://test:pass@localhost/testdb, Key: test-key-123}"
+	expected := "Config{ServerHost: test-server:8080, GRPCServerAddress: , GRPCEndpoint: , AgentPollInterval: 5s, AgentReportInterval: 15s, StoreInterval: 1m0s, FileStoragePath: /tmp/test-metrics.json, Restore: true, DatabaseDSN: postgres://test:pass@localhost/testdb, Key: test-key-123}"
 	actual := config.String()
 
 	assert.Equal(t, expected, actual)

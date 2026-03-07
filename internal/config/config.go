@@ -27,8 +27,10 @@ type Config struct {
 	RateLimit       int           // Лимит запросов в секунду
 	AuditFile       string        // Путь к файлу аудита
 	AuditURL        string        // URL для отправки событий аудита
-	PprofEnabled    bool          // Флаг включения pprof эндпоинтов
-	TrustedSubnet   string        // Доверенная подсеть в формате CIDR
+	PprofEnabled       bool   // Флаг включения pprof эндпоинтов
+	TrustedSubnet      string // Доверенная подсеть в формате CIDR
+	GRPCServerAddress string // Адрес gRPC-сервера (сервер). Если не пуст — запускается gRPC-сервер
+	GRPCEndpoint       string // Адрес gRPC-сервера для агента. Если не пуст — агент отправляет метрики по gRPC
 }
 
 var globalConfig *Config
@@ -49,6 +51,8 @@ func defaultConfig() *Config {
 		AuditURL:            defaultAuditURL,
 		PprofEnabled:        false,
 		TrustedSubnet:       defaultTrustedSubnet,
+		GRPCServerAddress:   defaultGRPCServerAddress,
+		GRPCEndpoint:        defaultGRPCEndpoint,
 	}
 }
 
@@ -126,8 +130,8 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) String() string {
-	return fmt.Sprintf("Config{ServerHost: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s, Key: %s}",
-		c.ServerHost, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN, c.Key)
+	return fmt.Sprintf("Config{ServerHost: %s, GRPCServerAddress: %s, GRPCEndpoint: %s, AgentPollInterval: %v, AgentReportInterval: %v, StoreInterval: %v, FileStoragePath: %s, Restore: %v, DatabaseDSN: %s, Key: %s}",
+		c.ServerHost, c.GRPCServerAddress, c.GRPCEndpoint, c.AgentPollInterval, c.AgentReportInterval, c.StoreInterval, c.FileStoragePath, c.Restore, c.DatabaseDSN, c.Key)
 }
 
 func (c *Config) loadFromEnvironment(flagsetName string, logger logger.Logger) {
@@ -206,6 +210,13 @@ func (c *Config) loadAgentEnvironmets(logger logger.Logger) {
 	} else {
 		c.RateLimit = rateLimit
 	}
+
+	grpcEndpoint, err := GetEnvironment(GRPCEndpointEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get gRPC endpoint from environment: %v", err)
+	} else {
+		c.GRPCEndpoint = grpcEndpoint
+	}
 }
 
 func (c *Config) loadServerEnvironmets(logger logger.Logger) {
@@ -260,5 +271,12 @@ func (c *Config) loadServerEnvironmets(logger logger.Logger) {
 		logger.Warnf("failed to get trusted subnet from environment: %v", err)
 	} else {
 		c.TrustedSubnet = trustedSubnet
+	}
+
+	grpcAddress, err := GetEnvironment(GRPCAddressEnvVar)
+	if err != nil {
+		logger.Warnf("failed to get gRPC address from environment: %v", err)
+	} else {
+		c.GRPCServerAddress = grpcAddress
 	}
 }

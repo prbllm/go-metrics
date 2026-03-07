@@ -46,6 +46,7 @@ func parseAgentFlags(fs *flag.FlagSet, config *Config, args []string) {
 	fs.IntVar(&reportIntervalSec, reportIntervalOrRestoreFlag, int(config.AgentReportInterval.Seconds()), reportIntervalDescription)
 	fs.IntVar(&pollIntervalSec, pollIntervalFlag, int(config.AgentPollInterval.Seconds()), pollIntervalDescription)
 	fs.IntVar(&config.RateLimit, rateLimitFlag, config.RateLimit, rateLimitDescription)
+	fs.StringVar(&config.GRPCEndpoint, grpcEndpointFlag, config.GRPCEndpoint, grpcEndpointDescription)
 
 	fs.Parse(args)
 
@@ -87,6 +88,7 @@ func parseServerFlags(fs *flag.FlagSet, config *Config, args []string) {
 	fs.BoolVar(&config.PprofEnabled, pprofFlag, false, pprofDescription)
 
 	fs.StringVar(&config.TrustedSubnet, trustedSubnetFlag, config.TrustedSubnet, trustedSubnetDescription)
+	fs.StringVar(&config.GRPCServerAddress, grpcAddressFlag, config.GRPCServerAddress, grpcAddressDescription)
 
 	fs.Parse(processedArgs)
 
